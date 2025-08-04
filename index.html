@@ -1160,7 +1160,7 @@
 
                     if (!response.ok) {
                         const errorData = await response.json().catch(() => ({}));
-                        let errorMsg = `Erro HTTP: ${response.status} ${response.statusText}.`;
+                        let errorMsg = `Buscando METAR/SPECI: ${response.status} ${response.statusText}.`;
                         if (errorData.message) {
                             errorMsg += ` Detalhes: ${errorData.message}`;
                         } else if (response.status === 401) {
@@ -1196,7 +1196,7 @@
                                 console.log('METAR: Mensagem da hora atual encontrada. Voltando para o polling padrão.');
                                 isFastPollingMetar = false;
                                 hideMetarAlarm();
-                                startPollingMetar(6000); // 5 minutos
+                                startPollingMetar(60000); // 6 segundos
                             } else {
                                 console.log('METAR: Mensagem desatualizada. Mantendo polling rápido.');
                                 showMetarAlarm();
@@ -1215,8 +1215,8 @@
                         addMetarLogEntry(icaoCode, 'ALERTA', 'Nenhum METAR ou SPECI encontrado.');
                     }
                 } catch (error) {
-                    console.error('Erro ao buscar METAR:', error);
-                    errorMessageTextMetar.text(`Erro ao buscar METAR: ${error.message}`);
+                    console.error('Buscando novo METAR:', error);
+                    errorMessageTextMetar.text(`Buscando novo METAR: ${error.message}`);
                     errorMessageTextMetar.visible(true);
                     initialPlaceholderTextMetar.visible(false);
                     showMetarAlarm();
@@ -1261,7 +1261,7 @@
 
             // Inicia o polling do METAR ao carregar a página
             checkHourAndFetchMetar();
-            startPollingMetar(600);
+            startPollingMetar(10000);
         });
     </script>
 </body>
