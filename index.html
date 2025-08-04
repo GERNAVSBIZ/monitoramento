@@ -870,6 +870,8 @@
 
             let metarDisplayStage;
             let metarDisplayLayer;
+            // Variável global para armazenar a última mensagem METAR
+            let lastMetarMessage = '';
 
             function initMetarDisplayKonva() {
                 if (metarDisplayStage) {
@@ -1027,6 +1029,13 @@
                     visible: false,
                 });
                 metarDisplayLayer.add(resultsTextMetar);
+                
+                // Lógica de restauração do METAR após o redesenho
+                if (lastMetarMessage) {
+                    resultsTextMetar.text(lastMetarMessage);
+                    resultsTextMetar.visible(true);
+                    initialPlaceholderTextMetar.visible(false);
+                }
 
                 metarDisplayLayer.batchDraw();
             }
@@ -1134,6 +1143,7 @@
                     metarDisplayLayer.batchDraw();
                     if (pollingIntervalIdMetar) clearInterval(pollingIntervalIdMetar);
                     addMetarLogEntry('N/A', 'ERRO', 'Código ICAO não inserido.');
+                    lastMetarMessage = '';
                     return;
                 }
 
@@ -1179,6 +1189,9 @@
                         metarMessages.sort((a, b) => new Date(b.recebimento) - new Date(a.recebimento));
 
                         const latestMessage = metarMessages[0].mens;
+                        
+                        // Armazena a mensagem para persistir após o redimensionamento
+                        lastMetarMessage = latestMessage;
 
                         resultsTextMetar.text(latestMessage);
                         resultsTextMetar.visible(true);
@@ -1213,6 +1226,7 @@
                         initialPlaceholderTextMetar.visible(false);
                         showMetarAlarm();
                         addMetarLogEntry(icaoCode, 'ALERTA', 'Nenhum METAR ou SPECI encontrado.');
+                        lastMetarMessage = '';
                     }
                 } catch (error) {
                     console.error('Buscando novo METAR:', error);
@@ -1221,6 +1235,7 @@
                     initialPlaceholderTextMetar.visible(false);
                     showMetarAlarm();
                     addMetarLogEntry(icaoCode, 'ERRO', error.message);
+                    lastMetarMessage = '';
                 } finally {
                     loadingTextMetar.visible(false);
                     metarDisplayLayer.batchDraw();
