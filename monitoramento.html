@@ -1158,7 +1158,7 @@
                 const now = new Date();
                 const currentUTCMinute = now.getUTCMinutes();
                 const currentUTCSecond = now.getUTCSeconds();
-                return currentUTCMinute > 1 || (currentUTCMinute === 1 && currentUTCSecond >= 30);
+                return currentUTCMinute > 0 || (currentUTCMinute === 0 && currentUTCSecond >= 10);
             }
             
             async function fetchMetarSpeci() {
@@ -1325,3 +1325,4 @@
     </script>
 </body>
 </html>
+
