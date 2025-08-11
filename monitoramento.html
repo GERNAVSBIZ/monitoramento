@@ -607,6 +607,8 @@
             const imageLoadErrorDisplay = document.getElementById('image-load-error');
 
             let runwayPerimeter;
+            let alarmLightIcon = null; // NOVA ALTERAÇÃO: Variável para o ícone de alarme
+            let alarmLightTween = null; // NOVA ALTERAÇÃO: Variável para o tween de piscar
 
             const useImageRunway = true;
             const runwayImageUrl = 'minha_pista.jpeg';
@@ -621,6 +623,36 @@
                         reject(e);
                     };
                     img.src = url;
+                });
+            }
+
+            // NOVA ALTERAÇÃO: Função para criar o ícone da lâmpada de alarme
+            function createAlarmLight() {
+                loadImage('luz_vermelha.png').then(imgElement => {
+                    alarmLightIcon = new Konva.Image({
+                        image: imgElement,
+                        x: 20, // Posição fixa na zona de segurança (canto superior esquerdo)
+                        y: 20,
+                        width: 40,
+                        height: 40,
+                        visible: false, // Começa invisível
+                        listening: false, // Não interativo
+                    });
+                    layer.add(alarmLightIcon);
+
+                    // Cria o tween, mas não o inicia
+                    alarmLightTween = new Konva.Tween({
+                        node: alarmLightIcon,
+                        duration: 0.5,
+                        opacity: 0.3,
+                        easing: Konva.Easings.EaseInOut,
+                        yoyo: true,
+                        iterations: -1
+                    });
+                    
+                    layer.batchDraw();
+                }).catch(error => {
+                    console.error("Erro ao carregar o ícone da lâmpada de alarme (luz_vermelha.png):", error);
                 });
             }
 
@@ -640,7 +672,6 @@
                         layer.add(image);
                         image.moveToBottom();
 
-                        // Ajuste estas coordenadas para SUA IMAGEM REAL DA PISTA
                         runwayPerimeter = new Konva.Rect({
                             x: stage.width() * 0.04,
                             y: stage.height() * 0.14,
@@ -690,27 +721,6 @@
                 layer.add(edgeLineTop);
                 const edgeLineBottom = new Konva.Line({ points: [currentWidth * 0.15, currentHeight * 0.6, currentWidth * 0.85, currentHeight * 0.6], stroke: 'white', strokeWidth: 3 });
                 layer.add(edgeLineBottom);
-                const numThresholdLines = 10;
-                const thresholdWidth = currentWidth * 0.05;
-                const thresholdLineSpacing = thresholdWidth / (numThresholdLines + 1);
-                for (let i = 0; i < numThresholdLines; i++) {
-                    const xPosLeft = currentWidth * 0.15 + thresholdLineSpacing * (i + 1);
-                    layer.add(new Konva.Line({ points: [xPosLeft, currentHeight * 0.4, xPosLeft, currentHeight * 0.6], stroke: 'white', strokeWidth: 6 }));
-                    const xPosRight = currentWidth * 0.85 - thresholdLineSpacing * (i + 1);
-                    layer.add(new Konva.Line({ points: [xPosRight, currentHeight * 0.4, xPosRight, currentHeight * 0.6], stroke: 'white', strokeWidth: 6 }));
-                }
-                const aimingPointWidth = currentWidth * 0.08;
-                const aimingPointHeight = currentHeight * 0.1;
-                const aimingPointOffset = currentWidth * 0.1;
-                const aimingPointY = currentHeight * 0.5 - aimingPointHeight / 2;
-                const aimingPointLeft = new Konva.Rect({ x: currentWidth * 0.15 + aimingPointOffset, y: aimingPointY, width: aimingPointWidth, height: aimingPointHeight, fill: 'white' });
-                layer.add(aimingPointLeft);
-                const aimingPointRight = new Konva.Rect({ x: currentWidth * 0.85 - aimingPointOffset - aimingPointWidth, y: aimingPointY, width: aimingPointWidth, height: aimingPointHeight, fill: 'white' });
-                layer.add(aimingPointRight);
-                const text07 = new Konva.Text({ x: currentWidth * 0.16, y: currentHeight * 0.49, text: '07', fontSize: 30, fontFamily: 'Arial', fill: 'white', rotation: -5, fontStyle: 'bold' });
-                layer.add(text07);
-                const text25 = new Konva.Text({ x: currentWidth * 0.81, y: currentHeight * 0.49, text: '25', fontSize: 30, fontFamily: 'Arial', fill: 'white', rotation: 5, fontStyle: 'bold' });
-                layer.add(text25);
                 runwayPerimeter = new Konva.Rect({
                     x: currentWidth * 0.1, y: currentHeight * 0.35, width: currentWidth * 0.8, height: currentHeight * 0.3,
                     fill: 'rgba(255, 0, 0, 0.25)',
@@ -721,13 +731,12 @@
                 layer.add(runwayPerimeter);
                 grassLeft.moveToBottom(); grassRight.moveToBottom(); grassTop.moveToBottom(); grassBottom.moveToBottom();
                 runwayBody.moveToBottom(); centerline.moveToBottom(); edgeLineTop.moveToBottom(); edgeLineBottom.moveToBottom();
-                aimingPointLeft.moveToBottom(); aimingPointRight.moveToBottom();
-                text07.moveToBottom(); text25.moveToBottom();
                 runwayPerimeter.moveToBottom();
                 layer.batchDraw();
             }
 
             drawRunway();
+            createAlarmLight(); // NOVA ALTERAÇÃO: Chama a função para criar o ícone de alarme
 
             function addDraggableIcon(imageUrl, type) {
                 loadImage(imageUrl).then(imgElement => {
@@ -754,6 +763,14 @@
                     });
                     image.on('dragmove', function () {
                         checkPerimeter(image);
+                    });
+                    // NOVA ALTERAÇÃO: Adiciona evento de duplo clique para remover o ícone
+                    image.on('dblclick', function () {
+                        const currentTime = new Date().toLocaleString('pt-BR');
+                        addLogEntry(`${currentTime}: ${image.name()} removido do pátio.`);
+                        image.destroy();
+                        updateAlarmStatus();
+                        layer.batchDraw();
                     });
                 }).catch(error => {
                     console.error(`Erro ao carregar imagem para o ícone ${type}:`, error);
@@ -803,21 +820,41 @@
                 }
             }
 
+            // NOVA ALTERAÇÃO: Função de status do alarme modificada
             function updateAlarmStatus() {
                 let runwayOccupied = false;
                 layer.find('Image').forEach(icon => {
-                    if (icon.isCurrentlyInside) {
+                    // Garante que o próprio ícone de alarme não seja contado
+                    if (icon !== alarmLightIcon && icon.isCurrentlyInside) {
                         runwayOccupied = true;
-                        return false;
+                        return false; // Otimização para sair do loop mais cedo
                     }
                 });
 
                 if (runwayOccupied) {
                     alarmDisplay.textContent = 'Pista Ocupada!';
                     alarmDisplay.classList.add('active');
+                    if (alarmLightIcon) {
+                        alarmLightIcon.show(); // Mostra a lâmpada
+                        if (alarmLightTween) {
+                            alarmLightTween.play(); // Inicia a animação de piscar
+                        }
+                    }
                 } else {
                     alarmDisplay.textContent = 'Pista Livre';
                     alarmDisplay.classList.remove('active');
+                    if (alarmLightIcon) {
+                        alarmLightIcon.hide(); // Esconde a lâmpada
+                        if (alarmLightTween) {
+                            alarmLightTween.pause(); // Pausa a animação de piscar
+                            alarmLightIcon.opacity(1); // Garante que a opacidade volte ao normal
+                        }
+                    }
+                }
+                
+                // Redesenha a camada para aplicar a mudança de visibilidade do ícone
+                if (layer) {
+                   layer.batchDraw();
                 }
             }
 
@@ -850,6 +887,7 @@
 
                 layer.destroyChildren();
                 drawRunway();
+                createAlarmLight(); // Recria o alarme ao redimensionar
                 layer.batchDraw();
 
                 resizeMetarDisplayKonva();
@@ -1110,40 +1148,25 @@
                 if (currentHour !== lastFetchedHourMetar && !isFastPollingMetar) {
                     console.log(`METAR: Nova hora detectada (${currentHour}Z). Mudando para polling rápido.`);
                     isFastPollingMetar = true;
-                    startPollingMetar(10000); // 10 segundos
+                    startPollingMetar(10000);
                 }
 
                 await fetchMetarSpeci();
             }
-
-            // ######################################################################
-            // ### INÍCIO DO BLOCO DE CÓDIGO MODIFICADO ###
-            // ######################################################################
-
-            // NOVA FUNÇÃO AUXILIAR PARA VERIFICAR O TEMPO LIMITE DO ALARME
-            /**
-             * Verifica se o tempo atual ultrapassou o limite para acionar o alarme.
-             * O alarme é acionado se os minutos da hora UTC forem maiores que 1,
-             * ou se forem exatamente 1 e os segundos forem 30 ou mais.
-             * @returns {boolean} - Verdadeiro se o alarme deve ser ativado.
-             */
+            
             function shouldAlarmBeActive() {
                 const now = new Date();
                 const currentUTCMinute = now.getUTCMinutes();
                 const currentUTCSecond = now.getUTCSeconds();
-                // Retorna verdadeiro se passou de 1 minuto e 30 segundos da hora cheia
                 return currentUTCMinute > 1 || (currentUTCMinute === 1 && currentUTCSecond >= 30);
             }
-
-
-            // FUNÇÃO fetchMetarSpeci MODIFICADA
+            
             async function fetchMetarSpeci() {
                 const icaoCode = icaoCodeInput.value.trim().toUpperCase();
 
-                // Limpa o estado da UI, exceto a mensagem de erro que será tratada abaixo
                 resultsTextMetar.visible(false);
                 initialPlaceholderTextMetar.visible(false);
-                errorMessageTextMetar.visible(false); // Esconde a mensagem de erro antiga
+                errorMessageTextMetar.visible(false);
                 loadingTextMetar.visible(true);
                 metarDisplayLayer.batchDraw();
 
@@ -1159,7 +1182,6 @@
                 }
 
                 const now = new Date();
-                // ALTERAÇÃO 1: O período de busca foi reduzido de 2 horas para 1 hora.
                 const oneHourAgo = new Date(now.getTime() - (1 * 60 * 60 * 1000));
 
                 const formatDateTime = (date) => {
@@ -1201,36 +1223,31 @@
                         metarMessages.sort((a, b) => new Date(b.recebimento) - new Date(a.recebimento));
 
                         const latestMessage = metarMessages[0].mens;
-                        lastMetarMessage = latestMessage; // Armazena a mensagem
+                        lastMetarMessage = latestMessage;
                         resultsTextMetar.text(latestMessage);
                         resultsTextMetar.visible(true);
 
                         const hourOfMessage = extractObservationHour(latestMessage);
 
                         if (hourOfMessage !== null) {
-                            lastFetchedHourMetar = hourOfMessage; // Atualiza a última hora conhecida
+                            lastFetchedHourMetar = hourOfMessage;
 
-                            // ALTERAÇÃO 2: A verificação agora é se a hora da mensagem é a hora UTC atual.
                             if (hourOfMessage === currentHour) {
-                                // METAR da hora atual foi encontrado.
                                 console.log('METAR: Mensagem da hora atual encontrada. Voltando para o polling padrão.');
                                 isFastPollingMetar = false;
-                                hideMetarAlarm(); // Garante que o alarme está desligado.
-                                startPollingMetar(60000); // Retorna ao polling de 60 segundos.
+                                hideMetarAlarm();
+                                startPollingMetar(60000);
                             } else {
-                                // METAR encontrado é de uma hora anterior.
                                 console.log(`METAR: Mensagem desatualizada (${hourOfMessage}Z) encontrada. Hora atual: ${currentHour}Z.`);
-                                // ALTERAÇÃO 3: Condição de alarme com tempo de espera.
                                 if (shouldAlarmBeActive()) {
                                     console.log("Disparando alarme, pois o tempo limite de 1m30s foi atingido.");
                                     showMetarAlarm();
                                 } else {
                                      console.log("Aguardando tempo limite de 1m30s antes de alarmar.");
-                                     hideMetarAlarm(); // Garante que o alarme não dispare prematuramente.
+                                     hideMetarAlarm();
                                 }
                             }
                         } else {
-                            // Não foi possível extrair a hora, trata como erro.
                             if (shouldAlarmBeActive()) {
                                 console.log("Não foi possível extrair a hora da mensagem. Disparando alarme após tempo limite.");
                                 showMetarAlarm();
@@ -1239,9 +1256,7 @@
                         addMetarLogEntry(icaoCode, 'SUCESSO', latestMessage);
 
                     } else {
-                        // NENHUM METAR encontrado na última hora.
                         lastMetarMessage = '';
-                        // ALTERAÇÃO 4: A mesma condição de alarme com tempo de espera é aplicada aqui.
                         if (shouldAlarmBeActive()) {
                             errorMessageTextMetar.text('ALERTA: Nenhum METAR ou SPECI encontrado na última hora.');
                             errorMessageTextMetar.visible(true);
@@ -1256,7 +1271,6 @@
                     }
                 } catch (error) {
                     console.error('Erro ao buscar METAR:', error);
-                    // ALTERAÇÃO 5: O alarme de erro também respeita o tempo de espera.
                     if (shouldAlarmBeActive()) {
                         errorMessageTextMetar.text(`Erro ao buscar METAR: ${error.message}`);
                         errorMessageTextMetar.visible(true);
@@ -1272,10 +1286,6 @@
                     metarDisplayLayer.batchDraw();
                 }
             }
-
-            // ######################################################################
-            // ### FIM DO BLOCO DE CÓDIGO MODIFICADO ###
-            // ######################################################################
 
 
             fetchMetarButton.addEventListener('click', () => {
@@ -1306,11 +1316,9 @@
                 downloadAnchorNode.remove();
             });
 
-            // Eventos para fechar o modal de alarme do METAR
             modalCloseButton.addEventListener('click', hideMetarAlarm);
             modalXButton.addEventListener('click', hideMetarAlarm);
 
-            // Inicia o polling do METAR ao carregar a página
             checkHourAndFetchMetar();
             startPollingMetar(10000);
         });
