@@ -41,15 +41,14 @@
             gap: 25px;
         }
 
-        /* Botão de ativar som */
-        #sound-toggle-button {
+        /* Botão de silenciar som */
+        #silence-alarm-button {
             position: absolute;
             top: 25px;
             right: 25px;
             padding: 8px 15px;
             border-radius: 6px;
             font-weight: 600;
-            background-color: #6b7280;
             color: white;
             cursor: pointer;
             transition: background-color 0.2s ease, transform 0.2s ease;
@@ -59,8 +58,8 @@
             gap: 8px;
         }
 
-        #sound-toggle-button:hover {
-            background-color: #4b5563;
+        #silence-alarm-button:hover {
+            background-color: #c0392b !important;
             transform: translateY(-1px);
         }
 
@@ -481,7 +480,7 @@
             #metar-controls button, #metar-controls input {
                 width: 100%;
             }
-            #sound-toggle-button {
+            #silence-alarm-button {
                 top: 15px;
                 right: 15px;
             }
@@ -501,9 +500,9 @@
     <h1>Monitoramento de Pista e METAR - Aeroporto de Imperatriz</h1>
 
     <div id="dashboard-container">
-        <button id="sound-toggle-button">
-            <i class="fas fa-volume-up"></i>
-            Ativar Sons de Alarme
+        <button id="silence-alarm-button" style="display: none; background-color: #e74c3c;">
+            <i class="fas fa-volume-mute"></i>
+            Silenciar Alarme
         </button>
 
         <div id="main-content-area">
@@ -903,6 +902,7 @@
             const metarAlarmModal = document.getElementById('metar-alarm-modal');
             const modalCloseButton = metarAlarmModal.querySelector('.modal-close-btn');
             const modalXButton = metarAlarmModal.querySelector('.close-button');
+            const silenceAlarmButton = document.getElementById('silence-alarm-button');
 
             let metarDisplayStage;
             let metarDisplayLayer;
@@ -942,28 +942,7 @@
             let alarmAnimationMetar = null;
 
             const metarAlarmSound = document.getElementById('metar-alarm-sound');
-            const soundToggleButton = document.getElementById('sound-toggle-button');
-            let audioEnabled = false;
             let isAlarmPlayingMetar = false;
-
-            soundToggleButton.addEventListener('click', enableAudio);
-
-            function enableAudio() {
-                if (audioEnabled) return;
-
-                metarAlarmSound.play().then(() => {
-                    metarAlarmSound.pause();
-                    metarAlarmSound.currentTime = 0;
-                    audioEnabled = true;
-                    soundToggleButton.style.display = 'none';
-                    console.log("Sons de alarme ativados.");
-                }).catch(e => {
-                    console.error("Erro ao tentar tocar o som. O navegador pode ter bloqueado a reprodução automática.", e);
-                    alert(`Não foi possível ativar o som de alarme. Erro: ${e.message}. Por favor, verifique o arquivo 'alarm.mp3' e tente novamente.`);
-                    soundToggleButton.textContent = 'Erro ao Ativar Som';
-                    soundToggleButton.style.backgroundColor = '#dc2626';
-                });
-            }
 
             function drawMetarDisplayUI() {
                 metarDisplayLayer.destroyChildren();
@@ -1099,6 +1078,9 @@
                     metarAlarmSound.currentTime = 0;
                     isAlarmPlayingMetar = false;
                 }
+
+                // Esconde o botão de silenciar
+                silenceAlarmButton.style.display = 'none';
             }
 
             function showMetarAlarm() {
@@ -1119,9 +1101,14 @@
 
                 metarAlarmModal.classList.add('visible');
 
-                if (audioEnabled && !isAlarmPlayingMetar) {
-                        metarAlarmSound.play().catch(e => {
-                        console.error("Erro ao tentar tocar o som do alarme.", e);
+                // Mostra o botão de silenciar
+                silenceAlarmButton.style.display = 'flex';
+
+                // Tenta tocar o som do alarme
+                if (!isAlarmPlayingMetar) {
+                    metarAlarmSound.play().catch(e => {
+                        // Este erro é esperado se o usuário ainda não interagiu com a página.
+                        console.warn("Não foi possível tocar o som do alarme automaticamente. Uma interação do usuário é necessária.", e.name);
                     });
                     isAlarmPlayingMetar = true;
                 }
@@ -1318,6 +1305,7 @@
 
             modalCloseButton.addEventListener('click', hideMetarAlarm);
             modalXButton.addEventListener('click', hideMetarAlarm);
+            silenceAlarmButton.addEventListener('click', hideMetarAlarm);
 
             checkHourAndFetchMetar();
             startPollingMetar(10000);
@@ -1325,4 +1313,3 @@
     </script>
 </body>
 </html>
-
