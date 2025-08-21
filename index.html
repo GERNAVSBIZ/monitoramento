@@ -573,7 +573,7 @@
                     const finalWidth = originalWidth * scale * userScale;
                     const finalHeight = originalHeight * scale * userScale;
                     const finalX = (containerWidth - finalWidth) / 2;
-                    const finalY = (containerHeight - finalHeight) / 10;
+                    const finalY = (containerHeight - finalHeight) / 2;
 
                     const image = new Konva.Image({ 
                         image: imgElement, 
@@ -810,17 +810,33 @@
                 const mutedColor = settings.darkMode ? '#8a99b0' : '#666';
                 
                 const resultsText = new Konva.Text({
-                    x: 15, y: 15, width: metarDisplayStage.width() - 30, text: '',
-                    fontSize: 28, fontFamily: 'monospace', fill: textColor, padding: 10,
-                    wrap: 'word', lineHeight: 1.5, visible: false
+                    x: 0,
+                    y: 0,
+                    width: metarDisplayStage.width(),
+                    height: metarDisplayStage.height(),
+                    text: '',
+                    fontSize: 28,
+                    fontFamily: 'monospace',
+                    fill: textColor,
+                    padding: 10,
+                    wrap: 'word',
+                    lineHeight: 1.5,
+                    visible: false,
+                    align: 'center',
+                    verticalAlign: 'middle'
                 });
                 metarDisplayLayer.add(resultsText);
                 metarDisplayLayer.resultsText = resultsText;
                 
                 const statusText = new Konva.Text({
-                    x: metarDisplayStage.width() / 2, y: metarDisplayStage.height() / 2,
-                    text: 'Aguardando busca...', fontSize: 16, fontFamily: 'Inter',
-                    fill: mutedColor, align: 'center', verticalAlign: 'middle',
+                    x: metarDisplayStage.width() / 2,
+                    y: metarDisplayStage.height() / 2,
+                    text: 'Aguardando busca...',
+                    fontSize: 16,
+                    fontFamily: 'Inter',
+                    fill: mutedColor,
+                    align: 'center',
+                    verticalAlign: 'middle',
                 });
                 statusText.offsetX(statusText.width() / 2);
                 metarDisplayLayer.add(statusText);
@@ -935,4 +951,4 @@
         });
     </script>
 </body>
-</ht
+</html>
