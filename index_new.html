@@ -223,13 +223,16 @@
         #context-menu {
             display: none; position: absolute; z-index: 1000;
             background-color: var(--card-color); border: 1px solid var(--border-color);
-            border-radius: 6px; box-shadow: var(--shadow-md); padding: 5px 0;
+            border-radius: 8px; box-shadow: var(--shadow-md); padding: 5px 0;
+            min-width: 200px;
         }
         #context-menu button {
             width: 100%; background: none; border: none; text-align: left;
-            padding: 8px 15px; cursor: pointer; color: var(--text-color);
+            padding: 10px 15px; cursor: pointer; color: var(--text-color);
+            display: flex; align-items: center; gap: 10px; font-size: 0.9em;
         }
         #context-menu button:hover { background-color: var(--bg-color); }
+        #context-menu button i { color: var(--text-muted-color); width: 16px; text-align: center; }
 
         /* Modal de Configurações */
         .modal-overlay {
@@ -245,7 +248,7 @@
         .modal-content h3 { font-size: 1.8em; margin-top: 0; margin-bottom: 20px; }
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: 500; color: var(--text-muted-color); }
-        .form-group input {
+        .form-group input, .form-group select {
             width: 100%; padding: 8px; box-sizing: border-box;
             background-color: var(--bg-color); border: 1px solid var(--border-color);
             border-radius: 6px; color: var(--text-color);
@@ -294,6 +297,7 @@
         <div id="runway-area" class="card">
             <div id="alarm-display">Pista Livre</div>
             <div class="icon-palette">
+                <!-- Ícones da paleta -->
                 <div class="icon-item" data-icon-type="Pessoal Obra" data-image-url="cones.png"><img src="cones.png" alt="Cone"></div>
                 <div class="icon-item" data-icon-type="Ambulancia" data-image-url="ambulancia.png"><img src="ambulancia.png" alt="Ambulancia"></div>
                 <div class="icon-item" data-icon-type="SCI" data-image-url="bombeiros.png"><img src="bombeiros.png" alt="Bombeiros"></div>
@@ -329,10 +333,14 @@
         </div>
     </div>
     
+    <!-- Menu de Contexto (escondido) -->
     <div id="context-menu">
+        <button id="annotate-icon-btn"><i class="fas fa-comment-dots"></i> Adicionar Anotação</button>
+        <button id="duplicate-icon-btn"><i class="fas fa-copy"></i> Duplicar Ícone</button>
         <button id="remove-icon-btn"><i class="fas fa-trash-alt"></i> Remover Ícone</button>
     </div>
 
+    <!-- Modal de Configurações (escondido) -->
     <div id="settings-modal" class="modal-overlay">
         <div class="modal-content">
             <h3>Configurações</h3>
@@ -368,7 +376,7 @@
     <audio id="metar-alarm-sound" src="alarm.mp3" loop preload="auto"></audio>
 
     <script>
-        document.addEventListener('DOMContentLoaded', (event) => {
+        document.addEventListener('DOMContentLoaded', () => {
             
             // --- VARIÁVEIS GLOBAIS E INICIALIZAÇÃO ---
             const konvaContainer = document.getElementById('konva-container');
@@ -390,7 +398,6 @@
             const settingDarkModeInput = document.getElementById('setting-dark-mode');
 
             function openSettingsModal() {
-                // Carrega as configurações atuais no modal antes de exibir
                 settingIcaoInput.value = settings.icaoCode;
                 settingPollIntervalInput.value = settings.pollInterval / 1000;
                 settingSoundAlarmInput.checked = settings.soundAlarm;
@@ -411,24 +418,19 @@
                 localStorage.setItem('dashboardSettings', JSON.stringify(settings));
                 applySettings();
                 closeSettingsModal();
-                
-                // Reinicia a busca METAR com as novas configurações
                 fetchMetarButton.click();
             }
 
             function applySettings() {
-                // Aplica o ICAO no campo de input visível
                 icaoCodeInput.value = settings.icaoCode;
-
-                // Aplica o tema dark/light
-                if (settings.darkMode) {
-                    document.body.classList.add('dark-mode');
-                } else {
-                    document.body.classList.remove('dark-mode');
-                }
-                
-                // Redesenha os displays Konva para se adaptarem ao tema
+                document.body.classList.toggle('dark-mode', settings.darkMode);
                 if (metarDisplayLayer) drawMetarDisplayUI();
+                if (layer) { // Atualiza a cor do texto das anotações existentes
+                    layer.find('.annotation-text').forEach(text => {
+                        text.fill(settings.darkMode ? '#e0e6f0' : '#212529');
+                    });
+                    layer.batchDraw();
+                }
             }
 
             function loadSettings() {
@@ -437,8 +439,7 @@
                     icaoCode: 'SBIZ',
                     pollInterval: 30000,
                     soundAlarm: true,
-                    // Detecta a preferência do sistema para o primeiro carregamento
-                    darkMode: window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+                    darkMode: window.matchMedia?.('(prefers-color-scheme: dark)').matches
                 };
                 settings = savedSettings ? JSON.parse(savedSettings) : defaultSettings;
                 applySettings();
@@ -450,27 +451,20 @@
 
             // --- LÓGICA DE PERSISTÊNCIA (localStorage) ---
             const observationsTextarea = document.getElementById('observationsTextarea');
-
-            function saveObservations() {
-                localStorage.setItem('observationsText', observationsTextarea.value);
-            }
+            observationsTextarea.addEventListener('input', () => localStorage.setItem('observationsText', observationsTextarea.value));
             
-            function loadObservations() {
-                observationsTextarea.value = localStorage.getItem('observationsText') || '';
-            }
-
-            observationsTextarea.addEventListener('input', saveObservations);
-
             function saveIconsState() {
                 const icons = [];
-                layer.find('Image').forEach(node => {
-                    // Não salva o ícone da luz de alarme
-                    if (node !== alarmLightIcon) {
+                layer.find('Group').forEach(group => {
+                    const image = group.findOne('Image');
+                    const textNode = group.findOne('.annotation-text');
+                    if (image) { // Apenas salva grupos que são ícones
                         icons.push({
-                            x: node.x(),
-                            y: node.y(),
-                            type: node.name(),
-                            imageUrl: node.attrs.imageUrl // Salva a URL para recriar a imagem
+                            x: group.x(),
+                            y: group.y(),
+                            type: image.name(),
+                            imageUrl: image.attrs.imageUrl,
+                            annotationText: textNode ? textNode.text() : ''
                         });
                     }
                 });
@@ -482,29 +476,26 @@
                 if (savedIcons) {
                     const icons = JSON.parse(savedIcons);
                     icons.forEach(iconData => {
-                        addDraggableIcon(iconData.imageUrl, iconData.type, iconData.x, iconData.y);
+                        addDraggableIcon(iconData.imageUrl, iconData.type, iconData.x, iconData.y, iconData.annotationText);
                     });
                 }
             }
-
 
             // --- LÓGICA DA PISTA (KONVA.JS) ---
             function initRunwayCanvas() {
                 let width = konvaContainer.offsetWidth;
                 let height = width * 0.5;
 
-                stage = new Konva.Stage({ container: 'konva-container', width: width, height: height });
+                stage = new Konva.Stage({ container: 'konva-container', width, height });
                 layer = new Konva.Layer();
                 stage.add(layer);
 
                 drawRunway();
                 createAlarmLight();
-                loadIconsFromLocalStorage(); // Carrega ícones salvos depois que o canvas está pronto
+                loadIconsFromLocalStorage();
             }
             
-            // ... (funções drawRunway, createAlarmLight, checkPerimeter, updateAlarmStatus, etc. do código original)
             async function drawRunway() {
-                // Desenha o fundo da pista (imagem ou simulado)
                 const runwayImageUrl = 'minha_pista.jpeg';
                 try {
                     const imgElement = await new Promise((resolve, reject) => {
@@ -516,7 +507,7 @@
                     const image = new Konva.Image({ image: imgElement, x: 0, y: 0, width: stage.width(), height: stage.height() });
                     layer.add(image);
                     image.moveToBottom();
-                } catch (e) { console.error("Não foi possível carregar a imagem da pista. Usando fallback."); }
+                } catch (e) { console.error("Não foi possível carregar a imagem da pista."); }
 
                 runwayPerimeter = new Konva.Rect({
                     x: stage.width() * 0.04, y: stage.height() * 0.14,
@@ -543,117 +534,165 @@
                 img.src = 'luz_vermelha.png';
             }
 
-            // --- LÓGICA DO MENU DE CONTEXTO ---
+            // --- LÓGICA DO MENU DE CONTEXTO E ANOTAÇÕES ---
             const contextMenu = document.getElementById('context-menu');
             const removeIconBtn = document.getElementById('remove-icon-btn');
-            let currentIconTarget = null; // Guarda o ícone que foi clicado com o botão direito
+            const annotateIconBtn = document.getElementById('annotate-icon-btn');
+            const duplicateIconBtn = document.getElementById('duplicate-icon-btn');
+            let currentIconTarget = null;
 
             window.addEventListener('click', () => { contextMenu.style.display = 'none'; });
 
+            function handleDuplicate() {
+                if (currentIconTarget) {
+                    const group = currentIconTarget.getParent();
+                    const image = group.findOne('Image');
+                    const textNode = group.findOne('.annotation-text');
+                    addDraggableIcon(image.attrs.imageUrl, image.name(), group.x() + 20, group.y() + 20, textNode ? textNode.text() : '');
+                    addLogEntry(`${new Date().toLocaleString('pt-BR')}: ${image.name()} duplicado.`);
+                    saveIconsState();
+                }
+            }
+
             removeIconBtn.addEventListener('click', () => {
                 if (currentIconTarget) {
+                    const group = currentIconTarget.getParent();
                     addLogEntry(`${new Date().toLocaleString('pt-BR')}: ${currentIconTarget.name()} removido.`);
-                    currentIconTarget.destroy();
+                    group.destroy();
                     updateAlarmStatus();
-                    saveIconsState(); // Salva o estado após remover
-                    layer.batchDraw();
-                    currentIconTarget = null;
+                    saveIconsState();
                 }
                 contextMenu.style.display = 'none';
             });
 
-            function addDraggableIcon(imageUrl, type, x, y) {
+            annotateIconBtn.addEventListener('click', () => {
+                if (currentIconTarget) {
+                    const group = currentIconTarget.getParent();
+                    const textNode = group.findOne('.annotation-text');
+                    const currentText = textNode ? textNode.text() : '';
+                    const newText = prompt('Digite a anotação:', currentText);
+
+                    if (newText !== null) { // Permite apagar o texto
+                        if (textNode) {
+                            if (newText === '') {
+                                textNode.destroy();
+                            } else {
+                                textNode.text(newText);
+                            }
+                        } else if (newText !== '') {
+                            const image = group.findOne('Image');
+                            const newTextNode = new Konva.Text({
+                                text: newText, fontSize: 14, fontFamily: 'Inter', fill: settings.darkMode ? '#e0e6f0' : '#212529',
+                                y: image.height() + 2, name: 'annotation-text', padding: 3,
+                                background: 'rgba(255,255,255,0.7)', cornerRadius: 3
+                            });
+                            // Centraliza o texto abaixo da imagem
+                            newTextNode.offsetX(newTextNode.width() / 2 - image.width() / 2);
+                            group.add(newTextNode);
+                        }
+                        saveIconsState();
+                        layer.batchDraw();
+                    }
+                }
+                contextMenu.style.display = 'none';
+            });
+
+            duplicateIconBtn.addEventListener('click', () => {
+                handleDuplicate();
+                contextMenu.style.display = 'none';
+            });
+
+            function addDraggableIcon(imageUrl, type, x, y, annotation = '') {
+                const group = new Konva.Group({
+                    x: x ?? Math.random() * (stage.width() - 60),
+                    y: y ?? Math.random() * (stage.height() - 60),
+                    draggable: true
+                });
+
                 const imgElement = new Image();
                 imgElement.onload = () => {
                     const image = new Konva.Image({
-                        image: imgElement,
-                        x: x === undefined ? Math.random() * (stage.width() - 60) : x,
-                        y: y === undefined ? Math.random() * (stage.height() - 60) : y,
-                        width: 50, height: 50, draggable: true, name: type,
+                        image: imgElement, width: 50, height: 50, name: type,
                         shadowColor: 'black', shadowBlur: 5, shadowOffset: { x: 3, y: 3 }, shadowOpacity: 0.3
                     });
-                    image.attrs.imageUrl = imageUrl; // Guarda a URL para salvar no localStorage
+                    image.attrs.imageUrl = imageUrl;
+                    group.add(image);
 
-                    layer.add(image);
-                    layer.batchDraw();
-
-                    image.on('dragend', () => {
-                        checkPerimeter(image);
-                        saveIconsState(); // Salva estado ao final do arraste
-                    });
-                    image.on('dragmove', () => checkPerimeter(image));
+                    if (annotation) {
+                        const textNode = new Konva.Text({
+                            text: annotation, fontSize: 14, fontFamily: 'Inter', fill: settings.darkMode ? '#e0e6f0' : '#212529',
+                            y: image.height() + 2, name: 'annotation-text', padding: 3,
+                            background: 'rgba(255,255,255,0.7)', cornerRadius: 3
+                        });
+                        textNode.offsetX(textNode.width() / 2 - image.width() / 2);
+                        group.add(textNode);
+                    }
                     
-                    // Lógica do Menu de Contexto
-                    image.on('contextmenu', (e) => {
+                    layer.add(group);
+                    
+                    group.on('dragend', () => { checkPerimeter(group); saveIconsState(); });
+                    group.on('dragmove', () => checkPerimeter(group));
+                    
+                    group.on('contextmenu', (e) => {
                         e.evt.preventDefault();
                         currentIconTarget = image;
                         contextMenu.style.display = 'block';
-                        // Posiciona o menu onde o mouse está
-                        contextMenu.style.left = stage.getPointerPosition().x + konvaContainer.offsetLeft + 'px';
-                        contextMenu.style.top = stage.getPointerPosition().y + konvaContainer.offsetTop + 'px';
+                        const pos = stage.getPointerPosition();
+                        contextMenu.style.left = pos.x + konvaContainer.getBoundingClientRect().left + 'px';
+                        contextMenu.style.top = pos.y + konvaContainer.getBoundingClientRect().top + 'px';
                     });
                     
-                    // Checa a posição inicial caso seja um ícone novo
-                    if (x === undefined) {
-                      checkPerimeter(image);
-                    }
+                    group.on('dblclick', () => {
+                        currentIconTarget = image; // Define o alvo para a função de duplicar
+                        handleDuplicate();
+                    });
 
+                    checkPerimeter(group); // Checa a posição inicial
                 };
                 imgElement.src = imageUrl;
             }
 
-            function checkPerimeter(icon) {
+            function checkPerimeter(group) {
                 if (!runwayPerimeter) return;
-                const iconRect = icon.getClientRect();
-                const perimeterRect = runwayPerimeter.getClientRect();
-                const isInside = !(iconRect.x > perimeterRect.x + perimeterRect.width ||
-                                 iconRect.x + iconRect.width < perimeterRect.x ||
-                                 iconRect.y > perimeterRect.y + perimeterRect.height ||
-                                 iconRect.y + iconRect.height < perimeterRect.y);
+                const iconRect = group.getClientRect({ relativeTo: layer });
+                const perimeterRect = runwayPerimeter.getClientRect({ relativeTo: layer });
+                const isInside = Konva.Util.haveIntersection(iconRect, perimeterRect);
                 
-                if (isInside && !icon.isCurrentlyInside) {
-                    addLogEntry(`${new Date().toLocaleString('pt-BR')}: ${icon.name()} ENTROU na pista.`);
-                    icon.isCurrentlyInside = true;
+                const iconType = group.findOne('Image').name();
+                if (isInside && !group.attrs.isCurrentlyInside) {
+                    addLogEntry(`${new Date().toLocaleString('pt-BR')}: ${iconType} ENTROU na pista.`);
+                    group.setAttr('isCurrentlyInside', true);
                     updateAlarmStatus();
-                } else if (!isInside && icon.isCurrentlyInside) {
-                    addLogEntry(`${new Date().toLocaleString('pt-BR')}: ${icon.name()} SAIU da pista.`);
-                    icon.isCurrentlyInside = false;
+                } else if (!isInside && group.attrs.isCurrentlyInside) {
+                    addLogEntry(`${new Date().toLocaleString('pt-BR')}: ${iconType} SAIU da pista.`);
+                    group.setAttr('isCurrentlyInside', false);
                     updateAlarmStatus();
                 }
             }
 
             function updateAlarmStatus() {
-                let runwayOccupied = false;
-                layer.find('Image').forEach(icon => {
-                    if (icon !== alarmLightIcon && icon.isCurrentlyInside) {
-                        runwayOccupied = true;
-                    }
-                });
-                if (runwayOccupied) {
-                    alarmDisplay.textContent = 'Pista Ocupada!';
-                    alarmDisplay.classList.add('active');
-                    if (alarmLightIcon) { alarmLightIcon.show(); alarmLightTween?.play(); }
-                } else {
-                    alarmDisplay.textContent = 'Pista Livre';
-                    alarmDisplay.classList.remove('active');
-                    if (alarmLightIcon) { alarmLightIcon.hide(); alarmLightTween?.pause(); }
+                const isOccupied = layer.find('Group').some(group => group.attrs.isCurrentlyInside);
+                alarmDisplay.textContent = isOccupied ? 'Pista Ocupada!' : 'Pista Livre';
+                alarmDisplay.classList.toggle('active', isOccupied);
+                if (alarmLightIcon) {
+                    alarmLightIcon.visible(isOccupied);
+                    isOccupied ? alarmLightTween?.play() : alarmLightTween?.pause();
                 }
                 layer.batchDraw();
             }
 
             function addLogEntry(message) {
-                const listItem = document.createElement('li');
-                listItem.textContent = message;
-                listItem.classList.add('new-entry');
-                logList.prepend(listItem);
-                // Remove a classe após a animação para não reanimar em redimensionamentos
-                setTimeout(() => listItem.classList.remove('new-entry'), 500);
+                const li = document.createElement('li');
+                li.textContent = message;
+                li.className = 'new-entry';
+                logList.prepend(li);
+                setTimeout(() => li.classList.remove('new-entry'), 500);
             }
 
             document.querySelectorAll('.icon-palette .icon-item').forEach(item => {
                 item.addEventListener('click', () => {
-                    const imageUrl = item.getAttribute('data-image-url');
-                    const iconType = item.getAttribute('data-icon-type');
+                    const imageUrl = item.dataset.imageUrl;
+                    const iconType = item.dataset.iconType;
                     addDraggableIcon(imageUrl, iconType);
                     addLogEntry(`${new Date().toLocaleString('pt-BR')}: ${iconType} adicionado ao pátio.`);
                     saveIconsState();
@@ -689,10 +728,10 @@
                 const resultsText = new Konva.Text({
                     x: 15, y: 15, width: metarDisplayStage.width() - 30, text: '',
                     fontSize: 28, fontFamily: 'monospace', fill: textColor, padding: 10,
-                    wrap: 'word', lineHeight: 1.5,
+                    wrap: 'word', lineHeight: 1.5, visible: false
                 });
                 metarDisplayLayer.add(resultsText);
-                metarDisplayLayer.resultsText = resultsText; // Anexa ao layer para fácil acesso
+                metarDisplayLayer.resultsText = resultsText;
                 
                 const statusText = new Konva.Text({
                     x: metarDisplayStage.width() / 2, y: metarDisplayStage.height() / 2,
@@ -701,7 +740,7 @@
                 });
                 statusText.offsetX(statusText.width() / 2);
                 metarDisplayLayer.add(statusText);
-                metarDisplayLayer.statusText = statusText; // Anexa ao layer
+                metarDisplayLayer.statusText = statusText;
                 
                 metarDisplayLayer.batchDraw();
             }
@@ -729,7 +768,6 @@
             }
             
             async function fetchMetarSpeci() {
-                // ... (código de fetch do METAR original, sem grandes alterações)
                 const icaoCode = icaoCodeInput.value.trim().toUpperCase();
                 metarDisplayLayer.statusText.text('Carregando...').visible(true);
                 metarDisplayLayer.resultsText.visible(false);
@@ -744,7 +782,7 @@
                 const now = new Date();
                 const oneHourAgo = new Date(now.getTime() - 3600000);
                 const formatDT = (d) => d.toISOString().slice(0, 13).replace(/[-T]/g, '');
-                const url = `https://api-redemet.decea.mil.br/mensagens/metar/${icaoCode}?api_key=${API_KEY}&data_ini=${formatDT(oneHourAgo)}&data_fim=${formatDT(now)}`;
+                const url = `https://api-redemet.decea.mil.br/mensagens/metar/${icaoCode}?api_key=${API_KEY}&data_ini=${formatDT(oneHourAgo)}${formatDT(now)}`;
                 
                 try {
                     const response = await fetch(url);
@@ -786,20 +824,21 @@
 
             // --- INICIALIZAÇÃO E REDIMENSIONAMENTO ---
             function handleResize() {
-                // Redimensiona o canvas da pista
-                let width = konvaContainer.offsetWidth;
-                let height = width * 0.5;
-                stage.width(width);
-                stage.height(height);
-                layer.destroyChildren(); // Limpa a camada
-                drawRunway();
-                createAlarmLight();
-                loadIconsFromLocalStorage(); // Recarrega os ícones nas novas posições relativas
-                
-                // Redimensiona o canvas do METAR
-                metarDisplayStage.width(metarDisplayKonvaContainer.offsetWidth);
-                metarDisplayStage.height(metarDisplayKonvaContainer.offsetHeight);
-                drawMetarDisplayUI(); // Redesenha a UI do METAR
+                if(stage) {
+                    let width = konvaContainer.offsetWidth;
+                    let height = width * 0.5;
+                    stage.width(width);
+                    stage.height(height);
+                    layer.destroyChildren();
+                    drawRunway();
+                    createAlarmLight();
+                    loadIconsFromLocalStorage();
+                }
+                if(metarDisplayStage) {
+                    metarDisplayStage.width(metarDisplayKonvaContainer.offsetWidth);
+                    metarDisplayStage.height(metarDisplayKonvaContainer.offsetHeight);
+                    drawMetarDisplayUI();
+                }
             }
 
             window.addEventListener('resize', handleResize);
@@ -807,9 +846,9 @@
             // --- CHAMADAS INICIAIS ---
             loadSettings();
             initRunwayCanvas();
-            loadObservations();
+            observationsTextarea.value = localStorage.getItem('observationsText') || '';
             initMetarDisplayKonva();
-            fetchMetarButton.click(); // Inicia a primeira busca
+            fetchMetarButton.click();
         });
     </script>
 </body>
