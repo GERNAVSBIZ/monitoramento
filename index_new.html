@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Aeroporto Imperatriz</title>
+    <script src="https://unpkg.com/konva@9.3.0/konva.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #f8f9fa;
+            --card-color: #ffffff;
+            --text-color: #212529;
+            --text-muted-color: #6c757d;
+            --border-color: #dee2e6;
+            --primary-color: #3b82f6;
+            --primary-hover-color: #2563eb;
+            --danger-color: #e74c3c;
+            --danger-hover-color: #c0392b;
+            --success-color: #2ecc71;
+            --shadow-sm: 0 2px 5px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 8px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        body.dark-mode {
+            --bg-color: #121826;
+            --card-color: #1a2233;
+            --text-color: #e0e6f0;
+            --text-muted-color: #8a99b0;
+            --border-color: #333d52;
+        }
+
+        /* Estilos básicos */
+        body {
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .header-container {
+            width: 100%;
+            max-width: 1600px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        h1 {
+            color: var(--text-color);
+            font-size: 2.2em;
+            text-align: center;
+            flex-grow: 1;
+        }
+
+        #settings-button {
+            background: none;
+            border: none;
+            color: var(--text-muted-color);
+            font-size: 1.8em;
+            cursor: pointer;
+            transition: color 0.2s, transform 0.2s;
+            padding: 10px;
+        }
+        #settings-button:hover {
+            color: var(--primary-color);
+            transform: rotate(45deg);
+        }
+
+        /* Contêiner principal do dashboard */
+        #dashboard-container {
+            display: grid;
+            width: 100%;
+            max-width: 1600px;
+            gap: 25px;
+            grid-template-columns: repeat(12, 1fr);
+            grid-template-areas:
+                "runway runway runway runway runway runway runway runway runway runway runway runway"
+                "metar metar metar metar metar metar metar observations observations observations observations observations"
+                "log log log log log log log log log log log log";
+        }
+        
+        /* Células do Grid */
+        #runway-area { grid-area: runway; }
+        #metar-area { grid-area: metar; }
+        #controls-area { grid-area: observations; }
+        #log-container { grid-area: log; }
+
+        /* Estilos dos Cards */
+        .card {
+            background-color: var(--card-color);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: var(--shadow-sm);
+            padding: 25px;
+            transition: background-color 0.3s, border-color 0.3s;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        h2 {
+            color: var(--text-color);
+            font-size: 1.6em;
+            font-weight: 600;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 10px;
+            margin: 0 0 15px 0;
+        }
+
+        /* Área do Canvas */
+        #konva-container {
+            border: 2px solid var(--border-color);
+            background-color: #e9eff4; /* Mantido claro para melhor visualização da pista */
+            border-radius: 8px;
+            overflow: hidden;
+            width: 100%;
+            aspect-ratio: 2 / 1;
+            max-height: 600px;
+            box-sizing: border-box;
+        }
+
+        /* Paleta de Ícones */
+        .icon-palette {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 12px;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
+        .icon-palette .icon-item {
+            width: 60px; height: 60px;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            padding: 5px;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            display: flex; justify-content: center; align-items: center;
+        }
+        .icon-palette .icon-item:hover {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: var(--shadow-md);
+        }
+        .icon-palette .icon-item img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+        /* Controles METAR */
+        #metar-controls { display: flex; gap: 10px; flex-wrap: wrap; }
+        #metar-controls input {
+            flex-grow: 1; min-width: 120px; padding: 8px 12px;
+            border: 1px solid var(--border-color); border-radius: 6px; font-size: 1em;
+            background-color: var(--bg-color); color: var(--text-color);
+        }
+        #metar-controls button {
+            padding: 10px 15px; border-radius: 6px; font-weight: 600;
+            cursor: pointer; transition: background-color 0.2s ease, transform 0.2s ease;
+            box-shadow: var(--shadow-sm); color: white; display: flex; align-items: center; gap: 8px;
+        }
+        #metar-controls button:hover { transform: translateY(-1px); }
+        .metar-button-blue { background-color: var(--primary-color); }
+        .metar-button-blue:hover { background-color: var(--primary-hover-color); }
+        .metar-button-gray { background-color: #6b7280; }
+        .metar-button-gray:hover { background-color: #4b5563; }
+
+        /* Display METAR Konva */
+        #metar-display-konva-container {
+            border: 2px solid var(--border-color);
+            background-color: var(--card-color);
+            border-radius: 8px; width: 100%; min-height: 180px;
+            box-sizing: border-box; flex-grow: 1;
+        }
+        
+        /* Outras Áreas */
+        #observation-area textarea {
+            width: 100%; box-sizing: border-box; min-height: 150px;
+            border: 1px solid var(--border-color); border-radius: 8px;
+            padding: 10px; resize: vertical; font-size: 1em;
+            background-color: var(--bg-color); color: var(--text-color);
+        }
+        #log-area {
+            border: 1px solid var(--border-color); border-radius: 8px; padding: 15px;
+            background-color: var(--bg-color); height: 250px; overflow-y: auto;
+        }
+        #log-area ul { list-style: none; padding: 0; margin: 0; }
+        #log-area li {
+            padding: 8px 0; border-bottom: 1px dotted var(--border-color);
+            font-size: 0.95em; color: var(--text-muted-color);
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+        #log-area li.new-entry { animation: fadeIn 0.4s ease-out; }
+
+        /* Alarme Pista */
+        #alarm-display {
+            width: 100%; height: 60px; background-color: var(--success-color);
+            border-radius: 8px; display: flex; justify-content: center; align-items: center;
+            color: white; font-weight: bold; font-size: 1.6em; transition: background-color 0.3s ease;
+        }
+        #alarm-display.active {
+            background-color: var(--danger-color); animation: blink 1s infinite alternate;
+        }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+
+        /* Botão Silenciar */
+        #silence-alarm-button {
+            position: fixed; top: 25px; right: 25px; z-index: 1001;
+            padding: 8px 15px; border-radius: 6px; font-weight: 600;
+            color: white; cursor: pointer; display: flex; align-items: center; gap: 8px;
+            background-color: var(--danger-color);
+        }
+        #silence-alarm-button:hover { background-color: var(--danger-hover-color); }
+
+        /* Menu de Contexto */
+        #context-menu {
+            display: none; position: absolute; z-index: 1000;
+            background-color: var(--card-color); border: 1px solid var(--border-color);
+            border-radius: 6px; box-shadow: var(--shadow-md); padding: 5px 0;
+        }
+        #context-menu button {
+            width: 100%; background: none; border: none; text-align: left;
+            padding: 8px 15px; cursor: pointer; color: var(--text-color);
+        }
+        #context-menu button:hover { background-color: var(--bg-color); }
+
+        /* Modal de Configurações */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: none; justify-content: center; align-items: center; z-index: 2000;
+        }
+        .modal-overlay.visible { display: flex; }
+        .modal-content {
+            background-color: var(--card-color); padding: 30px; border-radius: 12px;
+            width: 90%; max-width: 500px; box-shadow: var(--shadow-md);
+        }
+        .modal-content h3 { font-size: 1.8em; margin-top: 0; margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 500; color: var(--text-muted-color); }
+        .form-group input {
+            width: 100%; padding: 8px; box-sizing: border-box;
+            background-color: var(--bg-color); border: 1px solid var(--border-color);
+            border-radius: 6px; color: var(--text-color);
+        }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px; }
+        
+        /* Toggle Switch para Dark Mode */
+        .switch { position: relative; display: inline-block; width: 50px; height: 28px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #ccc; transition: .4s; border-radius: 28px;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px;
+            background-color: white; transition: .4s; border-radius: 50%;
+        }
+        input:checked + .slider { background-color: var(--primary-color); }
+        input:checked + .slider:before { transform: translateX(22px); }
+
+        /* Responsividade */
+        @media (max-width: 1200px) {
+            #dashboard-container {
+                grid-template-columns: 1fr;
+                grid-template-areas: "runway" "metar" "observations" "log";
+            }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="header-container">
+        <h1>Monitoramento de Pista e METAR - Aeroporto de Imperatriz</h1>
+        <button id="settings-button" title="Configurações">
+            <i class="fas fa-cog"></i>
+        </button>
+    </div>
+
+    <button id="silence-alarm-button" style="display: none;">
+        <i class="fas fa-volume-mute"></i> Silenciar Alarme
+    </button>
+    
+    <div id="dashboard-container">
+        
+        <div id="runway-area" class="card">
+            <div id="alarm-display">Pista Livre</div>
+            <div class="icon-palette">
+                <div class="icon-item" data-icon-type="Pessoal Obra" data-image-url="cones.png"><img src="cones.png" alt="Cone"></div>
+                <div class="icon-item" data-icon-type="Ambulancia" data-image-url="ambulancia.png"><img src="ambulancia.png" alt="Ambulancia"></div>
+                <div class="icon-item" data-icon-type="SCI" data-image-url="bombeiros.png"><img src="bombeiros.png" alt="Bombeiros"></div>
+                <div class="icon-item" data-icon-type="Avião" data-image-url="aviao.png"><img src="aviao.png" alt="Avião"></div>
+                <div class="icon-item" data-icon-type="Manutenção" data-image-url="ferramentas.png"><img src="ferramentas.png" alt="Ferramentas"></div>
+                <div class="icon-item" data-icon-type="Viatura" data-image-url="viatura.png"><img src="viatura.png" alt="Viatura"></div>
+                <div class="icon-item" data-icon-type="Pessoa" data-image-url="pessoas.png"><img src="pessoas.png" alt="Pessoa"></div>
+                <div class="icon-item" data-icon-type="Animais" data-image-url="animais.png"><img src="animais.png" alt="Animais"></div>
+            </div>
+            <div id="konva-container"></div>
+        </div>
+
+        <div id="metar-area" class="card">
+            <h2>METAR / SPECI</h2>
+            <div id="metar-display-konva-container"></div>
+            <div id="metar-controls">
+                <input type="text" id="icaoCodeInput" placeholder="Ex: SBIZ" class="metar-icao-input" />
+                <button id="fetchMetarButton" class="metar-button-blue"><i class="fas fa-sync-alt"></i> Buscar</button>
+                <button id="downloadMetarLogButton" class="metar-button-gray"><i class="fas fa-download"></i> Baixar Log</button>
+            </div>
+        </div>
+        
+        <div id="controls-area" class="card">
+            <div id="observation-area">
+                <h2>Observações</h2>
+                <textarea id="observationsTextarea" placeholder="Escreva observações importantes aqui..."></textarea>
+            </div>
+        </div>
+
+        <div id="log-container" class="card">
+            <h2>Log de Eventos</h2>
+            <div id="log-area"><ul></ul></div>
+        </div>
+    </div>
+    
+    <div id="context-menu">
+        <button id="remove-icon-btn"><i class="fas fa-trash-alt"></i> Remover Ícone</button>
+    </div>
+
+    <div id="settings-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>Configurações</h3>
+            <div class="form-group">
+                <label for="setting-icao-code">Código ICAO Padrão</label>
+                <input type="text" id="setting-icao-code" placeholder="Ex: SBIZ">
+            </div>
+            <div class="form-group">
+                <label for="setting-poll-interval">Intervalo de Busca (segundos)</label>
+                <input type="number" id="setting-poll-interval" min="10" placeholder="Ex: 30">
+            </div>
+            <div class="form-group">
+                <label for="setting-sound-alarm">Alarme Sonoro METAR</label>
+                <label class="switch">
+                    <input type="checkbox" id="setting-sound-alarm">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="form-group">
+                <label for="setting-dark-mode">Modo Escuro (Dark Mode)</label>
+                <label class="switch">
+                    <input type="checkbox" id="setting-dark-mode">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="modal-actions">
+                <button id="cancel-settings-btn" class="metar-button-gray">Cancelar</button>
+                <button id="save-settings-btn" class="metar-button-blue">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <audio id="metar-alarm-sound" src="alarm.mp3" loop preload="auto"></audio>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', (event) => {
+            
+            // --- VARIÁVEIS GLOBAIS E INICIALIZAÇÃO ---
+            const konvaContainer = document.getElementById('konva-container');
+            let stage, layer, runwayPerimeter, alarmLightIcon, alarmLightTween;
+            const logList = document.querySelector('#log-area ul');
+            const alarmDisplay = document.getElementById('alarm-display');
+            
+            let settings = {}; // Objeto para armazenar configurações
+
+            // --- LÓGICA DO PAINEL DE CONFIGURAÇÕES ---
+            const settingsModal = document.getElementById('settings-modal');
+            const settingsButton = document.getElementById('settings-button');
+            const saveSettingsBtn = document.getElementById('save-settings-btn');
+            const cancelSettingsBtn = document.getElementById('cancel-settings-btn');
+            
+            const settingIcaoInput = document.getElementById('setting-icao-code');
+            const settingPollIntervalInput = document.getElementById('setting-poll-interval');
+            const settingSoundAlarmInput = document.getElementById('setting-sound-alarm');
+            const settingDarkModeInput = document.getElementById('setting-dark-mode');
+
+            function openSettingsModal() {
+                // Carrega as configurações atuais no modal antes de exibir
+                settingIcaoInput.value = settings.icaoCode;
+                settingPollIntervalInput.value = settings.pollInterval / 1000;
+                settingSoundAlarmInput.checked = settings.soundAlarm;
+                settingDarkModeInput.checked = settings.darkMode;
+                settingsModal.classList.add('visible');
+            }
+
+            function closeSettingsModal() {
+                settingsModal.classList.remove('visible');
+            }
+
+            function saveSettings() {
+                settings.icaoCode = settingIcaoInput.value.toUpperCase().trim() || 'SBIZ';
+                settings.pollInterval = (parseInt(settingPollIntervalInput.value, 10) || 30) * 1000;
+                settings.soundAlarm = settingSoundAlarmInput.checked;
+                settings.darkMode = settingDarkModeInput.checked;
+                
+                localStorage.setItem('dashboardSettings', JSON.stringify(settings));
+                applySettings();
+                closeSettingsModal();
+                
+                // Reinicia a busca METAR com as novas configurações
+                fetchMetarButton.click();
+            }
+
+            function applySettings() {
+                // Aplica o ICAO no campo de input visível
+                icaoCodeInput.value = settings.icaoCode;
+
+                // Aplica o tema dark/light
+                if (settings.darkMode) {
+                    document.body.classList.add('dark-mode');
+                } else {
+                    document.body.classList.remove('dark-mode');
+                }
+                
+                // Redesenha os displays Konva para se adaptarem ao tema
+                if (metarDisplayLayer) drawMetarDisplayUI();
+            }
+
+            function loadSettings() {
+                const savedSettings = localStorage.getItem('dashboardSettings');
+                const defaultSettings = {
+                    icaoCode: 'SBIZ',
+                    pollInterval: 30000,
+                    soundAlarm: true,
+                    // Detecta a preferência do sistema para o primeiro carregamento
+                    darkMode: window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+                };
+                settings = savedSettings ? JSON.parse(savedSettings) : defaultSettings;
+                applySettings();
+            }
+            
+            settingsButton.addEventListener('click', openSettingsModal);
+            saveSettingsBtn.addEventListener('click', saveSettings);
+            cancelSettingsBtn.addEventListener('click', closeSettingsModal);
+
+            // --- LÓGICA DE PERSISTÊNCIA (localStorage) ---
+            const observationsTextarea = document.getElementById('observationsTextarea');
+
+            function saveObservations() {
+                localStorage.setItem('observationsText', observationsTextarea.value);
+            }
+            
+            function loadObservations() {
+                observationsTextarea.value = localStorage.getItem('observationsText') || '';
+            }
+
+            observationsTextarea.addEventListener('input', saveObservations);
+
+            function saveIconsState() {
+                const icons = [];
+                layer.find('Image').forEach(node => {
+                    // Não salva o ícone da luz de alarme
+                    if (node !== alarmLightIcon) {
+                        icons.push({
+                            x: node.x(),
+                            y: node.y(),
+                            type: node.name(),
+                            imageUrl: node.attrs.imageUrl // Salva a URL para recriar a imagem
+                        });
+                    }
+                });
+                localStorage.setItem('runwayIcons', JSON.stringify(icons));
+            }
+
+            function loadIconsFromLocalStorage() {
+                const savedIcons = localStorage.getItem('runwayIcons');
+                if (savedIcons) {
+                    const icons = JSON.parse(savedIcons);
+                    icons.forEach(iconData => {
+                        addDraggableIcon(iconData.imageUrl, iconData.type, iconData.x, iconData.y);
+                    });
+                }
+            }
+
+
+            // --- LÓGICA DA PISTA (KONVA.JS) ---
+            function initRunwayCanvas() {
+                let width = konvaContainer.offsetWidth;
+                let height = width * 0.5;
+
+                stage = new Konva.Stage({ container: 'konva-container', width: width, height: height });
+                layer = new Konva.Layer();
+                stage.add(layer);
+
+                drawRunway();
+                createAlarmLight();
+                loadIconsFromLocalStorage(); // Carrega ícones salvos depois que o canvas está pronto
+            }
+            
+            // ... (funções drawRunway, createAlarmLight, checkPerimeter, updateAlarmStatus, etc. do código original)
+            async function drawRunway() {
+                // Desenha o fundo da pista (imagem ou simulado)
+                const runwayImageUrl = 'minha_pista.jpeg';
+                try {
+                    const imgElement = await new Promise((resolve, reject) => {
+                        const img = new Image();
+                        img.onload = () => resolve(img);
+                        img.onerror = reject;
+                        img.src = runwayImageUrl;
+                    });
+                    const image = new Konva.Image({ image: imgElement, x: 0, y: 0, width: stage.width(), height: stage.height() });
+                    layer.add(image);
+                    image.moveToBottom();
+                } catch (e) { console.error("Não foi possível carregar a imagem da pista. Usando fallback."); }
+
+                runwayPerimeter = new Konva.Rect({
+                    x: stage.width() * 0.04, y: stage.height() * 0.14,
+                    width: stage.width() * 0.92, height: stage.height() * 0.53,
+                    fill: 'rgba(255, 0, 0, 0.25)', stroke: 'red', strokeWidth: 4, listening: false
+                });
+                layer.add(runwayPerimeter);
+                runwayPerimeter.moveToBottom();
+                layer.batchDraw();
+            }
+
+            function createAlarmLight() {
+                const img = new Image();
+                img.onload = () => {
+                    alarmLightIcon = new Konva.Image({
+                        image: img, x: 20, y: 20, width: 40, height: 40, visible: false, listening: false,
+                    });
+                    layer.add(alarmLightIcon);
+                    alarmLightTween = new Konva.Tween({
+                        node: alarmLightIcon, duration: 0.5, opacity: 0.3, yoyo: true, iterations: -1
+                    });
+                    layer.batchDraw();
+                };
+                img.src = 'luz_vermelha.png';
+            }
+
+            // --- LÓGICA DO MENU DE CONTEXTO ---
+            const contextMenu = document.getElementById('context-menu');
+            const removeIconBtn = document.getElementById('remove-icon-btn');
+            let currentIconTarget = null; // Guarda o ícone que foi clicado com o botão direito
+
+            window.addEventListener('click', () => { contextMenu.style.display = 'none'; });
+
+            removeIconBtn.addEventListener('click', () => {
+                if (currentIconTarget) {
+                    addLogEntry(`${new Date().toLocaleString('pt-BR')}: ${currentIconTarget.name()} removido.`);
+                    currentIconTarget.destroy();
+                    updateAlarmStatus();
+                    saveIconsState(); // Salva o estado após remover
+                    layer.batchDraw();
+                    currentIconTarget = null;
+                }
+                contextMenu.style.display = 'none';
+            });
+
+            function addDraggableIcon(imageUrl, type, x, y) {
+                const imgElement = new Image();
+                imgElement.onload = () => {
+                    const image = new Konva.Image({
+                        image: imgElement,
+                        x: x === undefined ? Math.random() * (stage.width() - 60) : x,
+                        y: y === undefined ? Math.random() * (stage.height() - 60) : y,
+                        width: 50, height: 50, draggable: true, name: type,
+                        shadowColor: 'black', shadowBlur: 5, shadowOffset: { x: 3, y: 3 }, shadowOpacity: 0.3
+                    });
+                    image.attrs.imageUrl = imageUrl; // Guarda a URL para salvar no localStorage
+
+                    layer.add(image);
+                    layer.batchDraw();
+
+                    image.on('dragend', () => {
+                        checkPerimeter(image);
+                        saveIconsState(); // Salva estado ao final do arraste
+                    });
+                    image.on('dragmove', () => checkPerimeter(image));
+                    
+                    // Lógica do Menu de Contexto
+                    image.on('contextmenu', (e) => {
+                        e.evt.preventDefault();
+                        currentIconTarget = image;
+                        contextMenu.style.display = 'block';
+                        // Posiciona o menu onde o mouse está
+                        contextMenu.style.left = stage.getPointerPosition().x + konvaContainer.offsetLeft + 'px';
+                        contextMenu.style.top = stage.getPointerPosition().y + konvaContainer.offsetTop + 'px';
+                    });
+                    
+                    // Checa a posição inicial caso seja um ícone novo
+                    if (x === undefined) {
+                      checkPerimeter(image);
+                    }
+
+                };
+                imgElement.src = imageUrl;
+            }
+
+            function checkPerimeter(icon) {
+                if (!runwayPerimeter) return;
+                const iconRect = icon.getClientRect();
+                const perimeterRect = runwayPerimeter.getClientRect();
+                const isInside = !(iconRect.x > perimeterRect.x + perimeterRect.width ||
+                                 iconRect.x + iconRect.width < perimeterRect.x ||
+                                 iconRect.y > perimeterRect.y + perimeterRect.height ||
+                                 iconRect.y + iconRect.height < perimeterRect.y);
+                
+                if (isInside && !icon.isCurrentlyInside) {
+                    addLogEntry(`${new Date().toLocaleString('pt-BR')}: ${icon.name()} ENTROU na pista.`);
+                    icon.isCurrentlyInside = true;
+                    updateAlarmStatus();
+                } else if (!isInside && icon.isCurrentlyInside) {
+                    addLogEntry(`${new Date().toLocaleString('pt-BR')}: ${icon.name()} SAIU da pista.`);
+                    icon.isCurrentlyInside = false;
+                    updateAlarmStatus();
+                }
+            }
+
+            function updateAlarmStatus() {
+                let runwayOccupied = false;
+                layer.find('Image').forEach(icon => {
+                    if (icon !== alarmLightIcon && icon.isCurrentlyInside) {
+                        runwayOccupied = true;
+                    }
+                });
+                if (runwayOccupied) {
+                    alarmDisplay.textContent = 'Pista Ocupada!';
+                    alarmDisplay.classList.add('active');
+                    if (alarmLightIcon) { alarmLightIcon.show(); alarmLightTween?.play(); }
+                } else {
+                    alarmDisplay.textContent = 'Pista Livre';
+                    alarmDisplay.classList.remove('active');
+                    if (alarmLightIcon) { alarmLightIcon.hide(); alarmLightTween?.pause(); }
+                }
+                layer.batchDraw();
+            }
+
+            function addLogEntry(message) {
+                const listItem = document.createElement('li');
+                listItem.textContent = message;
+                listItem.classList.add('new-entry');
+                logList.prepend(listItem);
+                // Remove a classe após a animação para não reanimar em redimensionamentos
+                setTimeout(() => listItem.classList.remove('new-entry'), 500);
+            }
+
+            document.querySelectorAll('.icon-palette .icon-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const imageUrl = item.getAttribute('data-image-url');
+                    const iconType = item.getAttribute('data-icon-type');
+                    addDraggableIcon(imageUrl, iconType);
+                    addLogEntry(`${new Date().toLocaleString('pt-BR')}: ${iconType} adicionado ao pátio.`);
+                    saveIconsState();
+                });
+            });
+
+            // --- CÓDIGO METAR INTEGRADO ---
+            const fetchMetarButton = document.getElementById('fetchMetarButton');
+            const silenceAlarmButton = document.getElementById('silence-alarm-button');
+            const metarAlarmSound = document.getElementById('metar-alarm-sound');
+            const metarDisplayKonvaContainer = document.getElementById('metar-display-konva-container');
+            let metarDisplayStage, metarDisplayLayer;
+            let pollingIntervalIdMetar, isAlarmPlayingMetar = false;
+            const API_KEY = "ttMZrBTp4mD0xMkYAVxKMzyu7B9KL1nfCS6T1fMR";
+
+            function initMetarDisplayKonva() {
+                if (metarDisplayStage) metarDisplayStage.destroy();
+                metarDisplayStage = new Konva.Stage({
+                    container: 'metar-display-konva-container',
+                    width: metarDisplayKonvaContainer.offsetWidth,
+                    height: metarDisplayKonvaContainer.offsetHeight,
+                });
+                metarDisplayLayer = new Konva.Layer();
+                metarDisplayStage.add(metarDisplayLayer);
+                drawMetarDisplayUI();
+            }
+
+            function drawMetarDisplayUI() {
+                metarDisplayLayer.destroyChildren();
+                const textColor = settings.darkMode ? '#e0e6f0' : '#444';
+                const mutedColor = settings.darkMode ? '#8a99b0' : '#666';
+                
+                const resultsText = new Konva.Text({
+                    x: 15, y: 15, width: metarDisplayStage.width() - 30, text: '',
+                    fontSize: 28, fontFamily: 'monospace', fill: textColor, padding: 10,
+                    wrap: 'word', lineHeight: 1.5,
+                });
+                metarDisplayLayer.add(resultsText);
+                metarDisplayLayer.resultsText = resultsText; // Anexa ao layer para fácil acesso
+                
+                const statusText = new Konva.Text({
+                    x: metarDisplayStage.width() / 2, y: metarDisplayStage.height() / 2,
+                    text: 'Aguardando busca...', fontSize: 16, fontFamily: 'Inter',
+                    fill: mutedColor, align: 'center', verticalAlign: 'middle',
+                });
+                statusText.offsetX(statusText.width() / 2);
+                metarDisplayLayer.add(statusText);
+                metarDisplayLayer.statusText = statusText; // Anexa ao layer
+                
+                metarDisplayLayer.batchDraw();
+            }
+
+            function startPollingMetar() {
+                if (pollingIntervalIdMetar) clearInterval(pollingIntervalIdMetar);
+                pollingIntervalIdMetar = setInterval(fetchMetarSpeci, settings.pollInterval);
+            }
+
+            function hideMetarAlarm() {
+                silenceAlarmButton.style.display = 'none';
+                if (isAlarmPlayingMetar) {
+                    metarAlarmSound.pause();
+                    metarAlarmSound.currentTime = 0;
+                    isAlarmPlayingMetar = false;
+                }
+            }
+
+            function showMetarAlarm() {
+                silenceAlarmButton.style.display = 'flex';
+                if (settings.soundAlarm && !isAlarmPlayingMetar) {
+                    metarAlarmSound.play().catch(e => console.warn("Interação do usuário necessária para tocar o alarme."));
+                    isAlarmPlayingMetar = true;
+                }
+            }
+            
+            async function fetchMetarSpeci() {
+                // ... (código de fetch do METAR original, sem grandes alterações)
+                const icaoCode = icaoCodeInput.value.trim().toUpperCase();
+                metarDisplayLayer.statusText.text('Carregando...').visible(true);
+                metarDisplayLayer.resultsText.visible(false);
+                metarDisplayLayer.batchDraw();
+
+                if (!icaoCode) {
+                    metarDisplayLayer.statusText.text('Insira um código ICAO.').visible(true);
+                    metarDisplayLayer.batchDraw();
+                    return;
+                }
+
+                const now = new Date();
+                const oneHourAgo = new Date(now.getTime() - 3600000);
+                const formatDT = (d) => d.toISOString().slice(0, 13).replace(/[-T]/g, '');
+                const url = `https://api-redemet.decea.mil.br/mensagens/metar/${icaoCode}?api_key=${API_KEY}&data_ini=${formatDT(oneHourAgo)}&data_fim=${formatDT(now)}`;
+                
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) throw new Error(`Erro ${response.status}`);
+                    const data = await response.json();
+                    const messages = data?.data?.data;
+                    
+                    if (messages && messages.length > 0) {
+                        messages.sort((a, b) => new Date(b.recebimento) - new Date(a.recebimento));
+                        const latestMessage = messages[0].mens;
+                        metarDisplayLayer.resultsText.text(latestMessage).visible(true);
+                        metarDisplayLayer.statusText.visible(false);
+                        
+                        const msgHour = parseInt(latestMessage.match(/\s\d{2}(\d{2})\d{2}Z/)?.[1], 10);
+                        const currentHour = new Date().getUTCHours();
+                        
+                        if (msgHour !== currentHour && new Date().getUTCMinutes() > 1) {
+                            showMetarAlarm();
+                        } else {
+                            hideMetarAlarm();
+                        }
+                    } else {
+                        metarDisplayLayer.statusText.text('Nenhum METAR encontrado na última hora.').visible(true);
+                        if (new Date().getUTCMinutes() > 1) showMetarAlarm();
+                    }
+                } catch (error) {
+                    metarDisplayLayer.statusText.text(`Falha na busca: ${error.message}`).visible(true);
+                     if (new Date().getUTCMinutes() > 1) showMetarAlarm();
+                } finally {
+                    metarDisplayLayer.batchDraw();
+                }
+            }
+
+            fetchMetarButton.addEventListener('click', () => {
+                fetchMetarSpeci();
+                startPollingMetar();
+            });
+            silenceAlarmButton.addEventListener('click', hideMetarAlarm);
+
+            // --- INICIALIZAÇÃO E REDIMENSIONAMENTO ---
+            function handleResize() {
+                // Redimensiona o canvas da pista
+                let width = konvaContainer.offsetWidth;
+                let height = width * 0.5;
+                stage.width(width);
+                stage.height(height);
+                layer.destroyChildren(); // Limpa a camada
+                drawRunway();
+                createAlarmLight();
+                loadIconsFromLocalStorage(); // Recarrega os ícones nas novas posições relativas
+                
+                // Redimensiona o canvas do METAR
+                metarDisplayStage.width(metarDisplayKonvaContainer.offsetWidth);
+                metarDisplayStage.height(metarDisplayKonvaContainer.offsetHeight);
+                drawMetarDisplayUI(); // Redesenha a UI do METAR
+            }
+
+            window.addEventListener('resize', handleResize);
+            
+            // --- CHAMADAS INICIAIS ---
+            loadSettings();
+            initRunwayCanvas();
+            loadObservations();
+            initMetarDisplayKonva();
+            fetchMetarButton.click(); // Inicia a primeira busca
+        });
+    </script>
+</body>
+</html>
