@@ -83,14 +83,12 @@
             gap: 25px;
             grid-template-columns: repeat(12, 1fr);
             grid-template-areas:
-                "runway runway runway runway runway runway runway runway runway runway runway runway"
-                "metar metar metar metar metar metar metar observations observations observations observations observations"
-                "log log log log log log log log log log log log";
+                "main-panel main-panel main-panel main-panel main-panel main-panel main-panel main-panel main-panel main-panel main-panel main-panel"
+                "observations observations observations observations log log log log log log log log";
         }
         
         /* Células do Grid */
-        #runway-area { grid-area: runway; }
-        #metar-area { grid-area: metar; }
+        #main-panel-area { grid-area: main-panel; }
         #controls-area { grid-area: observations; }
         #log-container { grid-area: log; }
 
@@ -115,6 +113,24 @@
             padding-bottom: 10px;
             margin: 0 0 15px 0;
         }
+        
+        /* NOVO: Layout do Painel Principal */
+        #main-panel-wrapper {
+            display: flex;
+            gap: 25px;
+        }
+        #runway-container {
+            flex: 3; /* Pista ocupa mais espaço */
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        #info-panel {
+            flex: 1; /* Painel de info ocupa menos espaço */
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
 
         /* Área do Canvas */
         #konva-container {
@@ -124,7 +140,6 @@
             overflow: hidden;
             width: 100%;
             aspect-ratio: 2 / 1;
-            max-height: 600px;
             box-sizing: border-box;
         }
 
@@ -176,8 +191,10 @@
         #metar-display-konva-container {
             border: 2px solid var(--border-color);
             background-color: var(--card-color);
-            border-radius: 8px; width: 100%; min-height: 180px;
-            box-sizing: border-box; flex-grow: 1;
+            border-radius: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            height: 120px; /* Altura fixa e compacta */
         }
         
         /* Outras Áreas */
@@ -273,8 +290,13 @@
         /* Responsividade */
         @media (max-width: 1200px) {
             #dashboard-container {
-                grid-template-columns: 1fr;
-                grid-template-areas: "runway" "metar" "observations" "log";
+                grid-template-areas:
+                    "main-panel main-panel main-panel main-panel main-panel main-panel main-panel main-panel main-panel main-panel main-panel main-panel"
+                    "observations observations observations observations observations observations observations observations observations observations observations observations"
+                    "log log log log log log log log log log log log";
+            }
+            #main-panel-wrapper {
+                flex-direction: column;
             }
         }
 
@@ -295,29 +317,31 @@
     
     <div id="dashboard-container">
         
-        <div id="runway-area" class="card">
-            <div id="alarm-display">Pista Livre</div>
-            <div class="icon-palette">
-                <!-- Ícones da paleta -->
-                <div class="icon-item" data-icon-type="Pessoal Obra" data-image-url="cones.png"><img src="cones.png" alt="Cone"></div>
-                <div class="icon-item" data-icon-type="Ambulancia" data-image-url="ambulancia.png"><img src="ambulancia.png" alt="Ambulancia"></div>
-                <div class="icon-item" data-icon-type="SCI" data-image-url="bombeiros.png"><img src="bombeiros.png" alt="Bombeiros"></div>
-                <div class="icon-item" data-icon-type="Avião" data-image-url="aviao.png"><img src="aviao.png" alt="Avião"></div>
-                <div class="icon-item" data-icon-type="Manutenção" data-image-url="ferramentas.png"><img src="ferramentas.png" alt="Ferramentas"></div>
-                <div class="icon-item" data-icon-type="Viatura" data-image-url="viatura.png"><img src="viatura.png" alt="Viatura"></div>
-                <div class="icon-item" data-icon-type="Pessoa" data-image-url="pessoas.png"><img src="pessoas.png" alt="Pessoa"></div>
-                <div class="icon-item" data-icon-type="Animais" data-image-url="animais.png"><img src="animais.png" alt="Animais"></div>
-            </div>
-            <div id="konva-container"></div>
-        </div>
-
-        <div id="metar-area" class="card">
-            <h2>METAR / SPECI</h2>
-            <div id="metar-display-konva-container"></div>
-            <div id="metar-controls">
-                <input type="text" id="icaoCodeInput" placeholder="Ex: SBIZ" class="metar-icao-input" />
-                <button id="fetchMetarButton" class="metar-button-blue"><i class="fas fa-sync-alt"></i> Buscar</button>
-                <button id="downloadMetarLogButton" class="metar-button-gray"><i class="fas fa-download"></i> Baixar Log</button>
+        <div id="main-panel-area" class="card">
+            <div id="main-panel-wrapper">
+                <div id="runway-container">
+                    <div class="icon-palette">
+                        <!-- Ícones da paleta -->
+                        <div class="icon-item" data-icon-type="Pessoal Obra" data-image-url="cones.png"><img src="cones.png" alt="Cone"></div>
+                        <div class="icon-item" data-icon-type="Ambulancia" data-image-url="ambulancia.png"><img src="ambulancia.png" alt="Ambulancia"></div>
+                        <div class="icon-item" data-icon-type="SCI" data-image-url="bombeiros.png"><img src="bombeiros.png" alt="Bombeiros"></div>
+                        <div class="icon-item" data-icon-type="Avião" data-image-url="aviao.png"><img src="aviao.png" alt="Avião"></div>
+                        <div class="icon-item" data-icon-type="Manutenção" data-image-url="ferramentas.png"><img src="ferramentas.png" alt="Ferramentas"></div>
+                        <div class="icon-item" data-icon-type="Viatura" data-image-url="viatura.png"><img src="viatura.png" alt="Viatura"></div>
+                        <div class="icon-item" data-icon-type="Pessoa" data-image-url="pessoas.png"><img src="pessoas.png" alt="Pessoa"></div>
+                        <div class="icon-item" data-icon-type="Animais" data-image-url="animais.png"><img src="animais.png" alt="Animais"></div>
+                    </div>
+                    <div id="alarm-display">Pista Livre</div>
+                    <div id="konva-container"></div>
+                </div>
+                <div id="info-panel">
+                    <div id="metar-display-konva-container"></div>
+                    <div id="metar-controls">
+                        <input type="text" id="icaoCodeInput" placeholder="Ex: SBIZ" class="metar-icao-input" />
+                        <button id="fetchMetarButton" class="metar-button-blue"><i class="fas fa-sync-alt"></i></button>
+                        <button id="downloadMetarLogButton" class="metar-button-gray"><i class="fas fa-download"></i></button>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -543,7 +567,7 @@
             }
             
             async function drawRunway() {
-                const runwayImageUrl = 'pista.jpg';
+                const runwayImageUrl = 'minha_pista.jpeg';
                 try {
                     const imgElement = await new Promise((resolve, reject) => {
                         const img = new Image();
@@ -808,9 +832,10 @@
                 const mutedColor = settings.darkMode ? '#8a99b0' : '#666';
                 
                 const resultsText = new Konva.Text({
-                    x: 15, y: 15, width: metarDisplayStage.width() - 30, text: '',
-                    fontSize: 28, fontFamily: 'monospace', fill: textColor, padding: 10,
-                    wrap: 'word', lineHeight: 1.5, visible: false
+                    x: 10, y: 10, width: metarDisplayStage.width() - 20, height: metarDisplayStage.height() - 20, text: '',
+                    fontSize: 18, fontFamily: 'monospace', fill: textColor,
+                    wrap: 'word', lineHeight: 1.5, visible: false,
+                    verticalAlign: 'middle'
                 });
                 metarDisplayLayer.add(resultsText);
                 metarDisplayLayer.resultsText = resultsText;
@@ -935,5 +960,3 @@
     </script>
 </body>
 </html>
-
-
