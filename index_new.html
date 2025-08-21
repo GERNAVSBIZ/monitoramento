@@ -782,7 +782,7 @@
                 const now = new Date();
                 const oneHourAgo = new Date(now.getTime() - 3600000);
                 const formatDT = (d) => d.toISOString().slice(0, 13).replace(/[-T]/g, '');
-                const url = `https://api-redemet.decea.mil.br/mensagens/metar/${icaoCode}?api_key=${API_KEY}&data_ini=${formatDT(oneHourAgo)}${formatDT(now)}`;
+                const url = `https://api-redemet.decea.mil.br/mensagens/metar/${icaoCode}?api_key=${API_KEY}&data_ini=${formatDT(oneHourAgo)}&data_fim=${formatDT(now)}`;
                 
                 try {
                     const response = await fetch(url);
