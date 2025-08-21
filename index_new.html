@@ -83,12 +83,12 @@
             gap: 25px;
             grid-template-columns: repeat(12, 1fr);
             grid-template-areas:
-                "main-panel main-panel main-panel main-panel main-panel main-panel main-panel main-panel main-panel main-panel main-panel main-panel"
-                "observations observations observations observations log log log log log log log log";
+                "runway runway runway runway runway runway runway runway runway runway runway runway"
+                "observations observations observations observations observations observations log log log log log log";
         }
         
         /* Células do Grid */
-        #main-panel-area { grid-area: main-panel; }
+        #runway-area { grid-area: runway; }
         #controls-area { grid-area: observations; }
         #log-container { grid-area: log; }
 
@@ -113,6 +113,20 @@
             padding-bottom: 10px;
             margin: 0 0 15px 0;
         }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .card-header h2 {
+            border: none;
+            padding: 0;
+            margin: 0;
+        }
 
         /* Área do Canvas */
         #konva-container {
@@ -122,6 +136,7 @@
             overflow: hidden;
             width: 100%;
             aspect-ratio: 2 / 1;
+            max-height: 600px;
             box-sizing: border-box;
         }
 
@@ -151,32 +166,32 @@
         }
         .icon-palette .icon-item img { max-width: 100%; max-height: 100%; object-fit: contain; }
 
-        /* Controles METAR */
-        #metar-controls { display: flex; gap: 10px; flex-wrap: wrap; }
-        #metar-controls input {
-            flex-grow: 1; min-width: 120px; padding: 8px 12px;
-            border: 1px solid var(--border-color); border-radius: 6px; font-size: 1em;
-            background-color: var(--bg-color); color: var(--text-color);
+        /* Botão de Download Log */
+        #downloadMetarLogButton {
+            padding: 8px 12px;
+            font-size: 0.9em;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.2s ease;
+            box-shadow: var(--shadow-sm);
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background-color: #6b7280;
         }
-        #metar-controls button {
-            padding: 10px 15px; border-radius: 6px; font-weight: 600;
-            cursor: pointer; transition: background-color 0.2s ease, transform 0.2s ease;
-            box-shadow: var(--shadow-sm); color: white; display: flex; align-items: center; gap: 8px;
+        #downloadMetarLogButton:hover {
+            transform: translateY(-1px);
+            background-color: #4b5563;
         }
-        #metar-controls button:hover { transform: translateY(-1px); }
-        .metar-button-blue { background-color: var(--primary-color); }
-        .metar-button-blue:hover { background-color: var(--primary-hover-color); }
-        .metar-button-gray { background-color: #6b7280; }
-        .metar-button-gray:hover { background-color: #4b5563; }
 
         /* Display METAR Konva */
         #metar-display-konva-container {
             border: 2px solid var(--border-color);
             background-color: var(--card-color);
-            border-radius: 8px;
-            width: 100%;
+            border-radius: 8px; width: 100%; min-height: 100px;
             box-sizing: border-box;
-            height: 80px; /* Altura fixa e compacta */
         }
         
         /* Outras Áreas */
@@ -185,15 +200,18 @@
             border: 1px solid var(--border-color); border-radius: 8px;
             padding: 10px; resize: vertical; font-size: 1em;
             background-color: var(--bg-color); color: var(--text-color);
+            flex-grow: 1; /* Faz o textarea crescer para preencher o card */
+        }
+        #controls-area {
+            height: 100%; /* Garante que o card ocupe a altura da célula do grid */
         }
         #log-area {
             border: 1px solid var(--border-color); border-radius: 8px; padding: 15px;
             background-color: var(--bg-color); height: 250px; overflow-y: auto;
+            flex-grow: 1;
         }
-        #log-area ul { list-style: none; padding: 0; margin: 0; }
-        #log-area li {
-            padding: 8px 0; border-bottom: 1px dotted var(--border-color);
-            font-size: 0.95em; color: var(--text-muted-color);
+        #log-container {
+            height: 100%;
         }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
         #log-area li.new-entry { animation: fadeIn 0.4s ease-out; }
@@ -272,13 +290,8 @@
         /* Responsividade */
         @media (max-width: 1200px) {
             #dashboard-container {
-                grid-template-areas:
-                    "main-panel main-panel main-panel main-panel main-panel main-panel main-panel main-panel main-panel main-panel main-panel main-panel"
-                    "observations observations observations observations observations observations observations observations observations observations observations observations"
-                    "log log log log log log log log log log log log";
-            }
-            #main-panel-wrapper {
-                flex-direction: column;
+                grid-template-columns: 1fr;
+                grid-template-areas: "runway" "observations" "log";
             }
         }
 
@@ -299,32 +312,21 @@
     
     <div id="dashboard-container">
         
-        <div id="main-panel-area" class="card">
-            <div id="main-panel-wrapper">
-                <div id="runway-container">
-                    <div class="icon-palette">
-                        <!-- Ícones da paleta -->
-                        <div class="icon-item" data-icon-type="Pessoal Obra" data-image-url="cones.png"><img src="cones.png" alt="Cone"></div>
-                        <div class="icon-item" data-icon-type="Ambulancia" data-image-url="ambulancia.png"><img src="ambulancia.png" alt="Ambulancia"></div>
-                        <div class="icon-item" data-icon-type="SCI" data-image-url="bombeiros.png"><img src="bombeiros.png" alt="Bombeiros"></div>
-                        <div class="icon-item" data-icon-type="Avião" data-image-url="aviao.png"><img src="aviao.png" alt="Avião"></div>
-                        <div class="icon-item" data-icon-type="Manutenção" data-image-url="ferramentas.png"><img src="ferramentas.png" alt="Ferramentas"></div>
-                        <div class="icon-item" data-icon-type="Viatura" data-image-url="viatura.png"><img src="viatura.png" alt="Viatura"></div>
-                        <div class="icon-item" data-icon-type="Pessoa" data-image-url="pessoas.png"><img src="pessoas.png" alt="Pessoa"></div>
-                        <div class="icon-item" data-icon-type="Animais" data-image-url="animais.png"><img src="animais.png" alt="Animais"></div>
-                    </div>
-                    <div id="alarm-display">Pista Livre</div>
-                    <div id="konva-container"></div>
-                </div>
-                <div id="info-panel">
-                    <div id="metar-display-konva-container"></div>
-                    <div id="metar-controls">
-                        <input type="text" id="icaoCodeInput" placeholder="Ex: SBIZ" class="metar-icao-input" />
-                        <button id="fetchMetarButton" class="metar-button-blue"><i class="fas fa-sync-alt"></i></button>
-                        <button id="downloadMetarLogButton" class="metar-button-gray"><i class="fas fa-download"></i></button>
-                    </div>
-                </div>
+        <div id="runway-area" class="card">
+            <div id="alarm-display">Pista Livre</div>
+            <div id="metar-display-konva-container"></div>
+            <div class="icon-palette">
+                <!-- Ícones da paleta -->
+                <div class="icon-item" data-icon-type="Pessoal Obra" data-image-url="cones.png"><img src="cones.png" alt="Cone"></div>
+                <div class="icon-item" data-icon-type="Ambulancia" data-image-url="ambulancia.png"><img src="ambulancia.png" alt="Ambulancia"></div>
+                <div class="icon-item" data-icon-type="SCI" data-image-url="bombeiros.png"><img src="bombeiros.png" alt="Bombeiros"></div>
+                <div class="icon-item" data-icon-type="Avião" data-image-url="aviao.png"><img src="aviao.png" alt="Avião"></div>
+                <div class="icon-item" data-icon-type="Manutenção" data-image-url="ferramentas.png"><img src="ferramentas.png" alt="Ferramentas"></div>
+                <div class="icon-item" data-icon-type="Viatura" data-image-url="viatura.png"><img src="viatura.png" alt="Viatura"></div>
+                <div class="icon-item" data-icon-type="Pessoa" data-image-url="pessoas.png"><img src="pessoas.png" alt="Pessoa"></div>
+                <div class="icon-item" data-icon-type="Animais" data-image-url="animais.png"><img src="animais.png" alt="Animais"></div>
             </div>
+            <div id="konva-container"></div>
         </div>
         
         <div id="controls-area" class="card">
@@ -335,7 +337,10 @@
         </div>
 
         <div id="log-container" class="card">
-            <h2>Log de Eventos</h2>
+            <div class="card-header">
+                <h2>Log de Eventos</h2>
+                <button id="downloadMetarLogButton"><i class="fas fa-download"></i> Baixar Log</button>
+            </div>
             <div id="log-area"><ul></ul></div>
         </div>
     </div>
@@ -466,11 +471,11 @@
                 applySettings();
                 closeSettingsModal();
                 handleResize(); // Redesenha a pista com as novas configurações
-                fetchMetarButton.click();
+                fetchMetarSpeci();
+                startPollingMetar();
             }
 
             function applySettings() {
-                icaoCodeInput.value = settings.icaoCode;
                 document.body.classList.toggle('dark-mode', settings.darkMode);
                 if (metarDisplayLayer) drawMetarDisplayUI();
                 if (layer) { // Atualiza a cor do texto das anotações existentes
@@ -558,22 +563,15 @@
                         img.src = runwayImageUrl;
                     });
                     
-                    // Dimensões originais da imagem e do container
                     const originalWidth = imgElement.naturalWidth;
                     const originalHeight = imgElement.naturalHeight;
                     const containerWidth = stage.width();
                     const containerHeight = stage.height();
-
-                    // Calcula a escala para caber no container mantendo a proporção
                     const scale = Math.min(containerWidth / originalWidth, containerHeight / originalHeight);
-                    
-                    // Aplica a escala do usuário
                     const userScale = settings.imageScale / 100;
                     
                     const finalWidth = originalWidth * scale * userScale;
                     const finalHeight = originalHeight * scale * userScale;
-
-                    // Calcula a posição para centralizar
                     const finalX = (containerWidth - finalWidth) / 2;
                     const finalY = (containerHeight - finalHeight) / 2;
 
@@ -660,7 +658,7 @@
                     const currentText = textNode ? textNode.text() : '';
                     const newText = prompt('Digite a anotação:', currentText);
 
-                    if (newText !== null) { // Permite apagar o texto
+                    if (newText !== null) {
                         if (textNode) {
                             if (newText === '') {
                                 textNode.destroy();
@@ -674,7 +672,6 @@
                                 y: image.height() + 2, name: 'annotation-text', padding: 3,
                                 background: 'rgba(255,255,255,0.7)', cornerRadius: 3
                             });
-                            // Centraliza o texto abaixo da imagem
                             newTextNode.offsetX(newTextNode.width() / 2 - image.width() / 2);
                             group.add(newTextNode);
                         }
@@ -731,11 +728,11 @@
                     });
                     
                     group.on('dblclick', () => {
-                        currentIconTarget = image; // Define o alvo para a função de remover
+                        currentIconTarget = image;
                         handleRemove();
                     });
 
-                    checkPerimeter(group); // Checa a posição inicial
+                    checkPerimeter(group);
                 };
                 imgElement.src = imageUrl;
             }
@@ -788,7 +785,6 @@
             });
 
             // --- CÓDIGO METAR INTEGRADO ---
-            const fetchMetarButton = document.getElementById('fetchMetarButton');
             const silenceAlarmButton = document.getElementById('silence-alarm-button');
             const metarAlarmSound = document.getElementById('metar-alarm-sound');
             const metarDisplayKonvaContainer = document.getElementById('metar-display-konva-container');
@@ -814,10 +810,9 @@
                 const mutedColor = settings.darkMode ? '#8a99b0' : '#666';
                 
                 const resultsText = new Konva.Text({
-                    x: 10, y: 10, width: metarDisplayStage.width() - 20, height: metarDisplayStage.height() - 20, text: '',
-                    fontSize: 18, fontFamily: 'monospace', fill: textColor,
-                    wrap: 'word', lineHeight: 1.5, visible: false,
-                    verticalAlign: 'middle'
+                    x: 15, y: 15, width: metarDisplayStage.width() - 30, text: '',
+                    fontSize: 20, fontFamily: 'monospace', fill: textColor, padding: 10,
+                    wrap: 'word', lineHeight: 1.5, visible: false
                 });
                 metarDisplayLayer.add(resultsText);
                 metarDisplayLayer.resultsText = resultsText;
@@ -857,13 +852,15 @@
             }
             
             async function fetchMetarSpeci() {
-                const icaoCode = icaoCodeInput.value.trim().toUpperCase();
+                const icaoCode = settings.icaoCode;
+                if (!metarDisplayLayer || !metarDisplayLayer.statusText) return;
+
                 metarDisplayLayer.statusText.text('Carregando...').visible(true);
                 metarDisplayLayer.resultsText.visible(false);
                 metarDisplayLayer.batchDraw();
 
                 if (!icaoCode) {
-                    metarDisplayLayer.statusText.text('Insira um código ICAO.').visible(true);
+                    metarDisplayLayer.statusText.text('Insira um código ICAO nas configurações.').visible(true);
                     metarDisplayLayer.batchDraw();
                     return;
                 }
@@ -905,10 +902,6 @@
                 }
             }
 
-            fetchMetarButton.addEventListener('click', () => {
-                fetchMetarSpeci();
-                startPollingMetar();
-            });
             silenceAlarmButton.addEventListener('click', hideMetarAlarm);
 
             // --- INICIALIZAÇÃO E REDIMENSIONAMENTO ---
@@ -937,20 +930,9 @@
             initRunwayCanvas();
             observationsTextarea.value = localStorage.getItem('observationsText') || '';
             initMetarDisplayKonva();
-            fetchMetarButton.click();
+            fetchMetarSpeci();
+            startPollingMetar();
         });
     </script>
 </body>
 </html>
-" code between  and  in the most up-to-date Canvas "Dashboard Aeroporto com Ícones Interativos" document above and am asking a query about/based on this code below.
-Instructions to follow:
-  * Don't output/edit the document if the query is Direct/Simple. For example, if the query asks for a simple explanation, output a direct answer.
-  * Make sure to **edit** the document if the query shows the intent of editing the document, in which case output the entire edited document, **not just that section or the edits**.
-    * Don't output the same document/empty document and say that you have edited it.
-    * Don't change unrelated code in the document.
-  * Don't output  and  in your final response.
-  * Any references like "this" or "selected code" refers to the code between  and  tags.
-  * Just acknowledge my request in the introduction.
-  * Make sure to refer to the document as "Canvas" in your response.
-
-vamos testar a informação do METAR logo abaixo do campo pista livre e ocupada. Mas somente a informação recebida, o campo de texto e botões não. Eles podem ficar abaixo da imagem da pista. Deixa o campo com as informações do METAR no mesmo tamanho do quadrante de MET
