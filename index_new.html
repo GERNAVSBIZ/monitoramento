@@ -246,6 +246,7 @@
             width: 90%; max-width: 500px; box-shadow: var(--shadow-md);
         }
         .modal-content h3 { font-size: 1.8em; margin-top: 0; margin-bottom: 20px; }
+        .modal-content h4 { font-size: 1.1em; margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 20px; font-weight: 600; }
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: 500; color: var(--text-muted-color); }
         .form-group input, .form-group select {
@@ -366,6 +367,31 @@
                     <span class="slider"></span>
                 </label>
             </div>
+            
+            <h4>Configurações da Pista</h4>
+            <div class="form-group">
+                <label for="setting-image-scale">Tamanho da Imagem da Pista (%)</label>
+                <input type="number" id="setting-image-scale" min="50" max="100" placeholder="Ex: 100">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="form-group">
+                    <label for="setting-perimeter-x">Perímetro X (%)</label>
+                    <input type="number" id="setting-perimeter-x" min="0" max="100" placeholder="Ex: 4">
+                </div>
+                <div class="form-group">
+                    <label for="setting-perimeter-y">Perímetro Y (%)</label>
+                    <input type="number" id="setting-perimeter-y" min="0" max="100" placeholder="Ex: 14">
+                </div>
+                <div class="form-group">
+                    <label for="setting-perimeter-width">Perímetro Largura (%)</label>
+                    <input type="number" id="setting-perimeter-width" min="0" max="100" placeholder="Ex: 92">
+                </div>
+                <div class="form-group">
+                    <label for="setting-perimeter-height">Perímetro Altura (%)</label>
+                    <input type="number" id="setting-perimeter-height" min="0" max="100" placeholder="Ex: 53">
+                </div>
+            </div>
+
             <div class="modal-actions">
                 <button id="cancel-settings-btn" class="metar-button-gray">Cancelar</button>
                 <button id="save-settings-btn" class="metar-button-blue">Salvar</button>
@@ -396,12 +422,22 @@
             const settingPollIntervalInput = document.getElementById('setting-poll-interval');
             const settingSoundAlarmInput = document.getElementById('setting-sound-alarm');
             const settingDarkModeInput = document.getElementById('setting-dark-mode');
+            const settingImageScaleInput = document.getElementById('setting-image-scale');
+            const settingPerimeterXInput = document.getElementById('setting-perimeter-x');
+            const settingPerimeterYInput = document.getElementById('setting-perimeter-y');
+            const settingPerimeterWidthInput = document.getElementById('setting-perimeter-width');
+            const settingPerimeterHeightInput = document.getElementById('setting-perimeter-height');
 
             function openSettingsModal() {
                 settingIcaoInput.value = settings.icaoCode;
                 settingPollIntervalInput.value = settings.pollInterval / 1000;
                 settingSoundAlarmInput.checked = settings.soundAlarm;
                 settingDarkModeInput.checked = settings.darkMode;
+                settingImageScaleInput.value = settings.imageScale;
+                settingPerimeterXInput.value = settings.perimeterX;
+                settingPerimeterYInput.value = settings.perimeterY;
+                settingPerimeterWidthInput.value = settings.perimeterWidth;
+                settingPerimeterHeightInput.value = settings.perimeterHeight;
                 settingsModal.classList.add('visible');
             }
 
@@ -414,10 +450,16 @@
                 settings.pollInterval = (parseInt(settingPollIntervalInput.value, 10) || 30) * 1000;
                 settings.soundAlarm = settingSoundAlarmInput.checked;
                 settings.darkMode = settingDarkModeInput.checked;
+                settings.imageScale = parseInt(settingImageScaleInput.value, 10) || 100;
+                settings.perimeterX = parseInt(settingPerimeterXInput.value, 10) || 4;
+                settings.perimeterY = parseInt(settingPerimeterYInput.value, 10) || 14;
+                settings.perimeterWidth = parseInt(settingPerimeterWidthInput.value, 10) || 92;
+                settings.perimeterHeight = parseInt(settingPerimeterHeightInput.value, 10) || 53;
                 
                 localStorage.setItem('dashboardSettings', JSON.stringify(settings));
                 applySettings();
                 closeSettingsModal();
+                handleResize(); // Redesenha a pista com as novas configurações
                 fetchMetarButton.click();
             }
 
@@ -439,7 +481,12 @@
                     icaoCode: 'SBIZ',
                     pollInterval: 30000,
                     soundAlarm: true,
-                    darkMode: window.matchMedia?.('(prefers-color-scheme: dark)').matches
+                    darkMode: window.matchMedia?.('(prefers-color-scheme: dark)').matches,
+                    imageScale: 100,
+                    perimeterX: 4,
+                    perimeterY: 14,
+                    perimeterWidth: 92,
+                    perimeterHeight: 53
                 };
                 settings = savedSettings ? JSON.parse(savedSettings) : defaultSettings;
                 applySettings();
@@ -504,15 +551,33 @@
                         img.onerror = reject;
                         img.src = runwayImageUrl;
                     });
-                    const image = new Konva.Image({ image: imgElement, x: 0, y: 0, width: stage.width(), height: stage.height() });
+                    
+                    const imageScale = settings.imageScale / 100;
+                    const newWidth = stage.width() * imageScale;
+                    const newHeight = stage.height() * imageScale;
+                    const newX = (stage.width() - newWidth) / 2;
+                    const newY = (stage.height() - newHeight) / 2;
+
+                    const image = new Konva.Image({ 
+                        image: imgElement, 
+                        x: newX, 
+                        y: newY, 
+                        width: newWidth, 
+                        height: newHeight 
+                    });
                     layer.add(image);
                     image.moveToBottom();
                 } catch (e) { console.error("Não foi possível carregar a imagem da pista."); }
 
                 runwayPerimeter = new Konva.Rect({
-                    x: stage.width() * 0.04, y: stage.height() * 0.14,
-                    width: stage.width() * 0.92, height: stage.height() * 0.53,
-                    fill: 'rgba(255, 0, 0, 0.25)', stroke: 'red', strokeWidth: 4, listening: false
+                    x: stage.width() * (settings.perimeterX / 100), 
+                    y: stage.height() * (settings.perimeterY / 100),
+                    width: stage.width() * (settings.perimeterWidth / 100), 
+                    height: stage.height() * (settings.perimeterHeight / 100),
+                    fill: 'rgba(255, 0, 0, 0.25)', 
+                    stroke: 'red', 
+                    strokeWidth: 4, 
+                    listening: false
                 });
                 layer.add(runwayPerimeter);
                 runwayPerimeter.moveToBottom();
