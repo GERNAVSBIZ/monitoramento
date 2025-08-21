@@ -552,18 +552,31 @@
                         img.src = runwayImageUrl;
                     });
                     
-                    const imageScale = settings.imageScale / 100;
-                    const newWidth = stage.width() * imageScale;
-                    const newHeight = stage.height() * imageScale;
-                    const newX = (stage.width() - newWidth) / 2;
-                    const newY = (stage.height() - newHeight) / 2;
+                    // Dimensões originais da imagem e do container
+                    const originalWidth = imgElement.naturalWidth;
+                    const originalHeight = imgElement.naturalHeight;
+                    const containerWidth = stage.width();
+                    const containerHeight = stage.height();
+
+                    // Calcula a escala para caber no container mantendo a proporção
+                    const scale = Math.min(containerWidth / originalWidth, containerHeight / originalHeight);
+                    
+                    // Aplica a escala do usuário
+                    const userScale = settings.imageScale / 100;
+                    
+                    const finalWidth = originalWidth * scale * userScale;
+                    const finalHeight = originalHeight * scale * userScale;
+
+                    // Calcula a posição para centralizar
+                    const finalX = (containerWidth - finalWidth) / 2;
+                    const finalY = (containerHeight - finalHeight) / 2;
 
                     const image = new Konva.Image({ 
                         image: imgElement, 
-                        x: newX, 
-                        y: newY, 
-                        width: newWidth, 
-                        height: newHeight 
+                        x: finalX, 
+                        y: finalY, 
+                        width: finalWidth, 
+                        height: finalHeight 
                     });
                     layer.add(image);
                     image.moveToBottom();
@@ -618,8 +631,8 @@
                     saveIconsState();
                 }
             }
-
-            removeIconBtn.addEventListener('click', () => {
+            
+            function handleRemove() {
                 if (currentIconTarget) {
                     const group = currentIconTarget.getParent();
                     addLogEntry(`${new Date().toLocaleString('pt-BR')}: ${currentIconTarget.name()} removido.`);
@@ -627,6 +640,10 @@
                     updateAlarmStatus();
                     saveIconsState();
                 }
+            }
+
+            removeIconBtn.addEventListener('click', () => {
+                handleRemove();
                 contextMenu.style.display = 'none';
             });
 
@@ -708,8 +725,8 @@
                     });
                     
                     group.on('dblclick', () => {
-                        currentIconTarget = image; // Define o alvo para a função de duplicar
-                        handleDuplicate();
+                        currentIconTarget = image; // Define o alvo para a função de remover
+                        handleRemove();
                     });
 
                     checkPerimeter(group); // Checa a posição inicial
@@ -917,4 +934,4 @@
         });
     </script>
 </body>
-</ht
+</html>
