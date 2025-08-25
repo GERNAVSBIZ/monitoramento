@@ -790,7 +790,7 @@
                 const formatDT = (d) => d.toISOString().slice(0, 13).replace(/[-T]/g, '');
                 const url = `https://api-redemet.decea.mil.br/mensagens/metar/${settings.icaoCode}?api_key=${API_KEY}&data_ini=${formatDT(oneHourAgo)}&data_fim=${formatDT(now)}`;
                 try {
-                    const response = await fetch(url);
+                    const response = await fetch(url, { cache: 'no-store' });
                     if (!response.ok) throw new Error(`Erro ${response.status}`);
                     const data = await response.json();
                     const messages = data?.data?.data;
@@ -869,3 +869,4 @@
     </script>
 </body>
 </html>
+
