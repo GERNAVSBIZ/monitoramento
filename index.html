@@ -778,7 +778,7 @@
             }
             
             // ATUALIZADO: Esconde o alarme e gerencia o estado para o período noturno.
-            function hideMetarAlarm() {
+            function hideMetarAlarm(isManualSilence = false) {
                 silenceAlarmButton.style.display = 'none';
                 metarDisplayKonvaContainer.classList.remove('metar-alert');
                 if (isAlarmPlayingMetar) {
@@ -787,20 +787,20 @@
                     isAlarmPlayingMetar = false;
                 }
 
-                // Se o alarme for escondido durante o período noturno (seja por um METAR válido ou por silenciar),
-                // marca a hora atual como "tratada" para evitar que o alarme toque novamente.
-                const now = new Date();
-                const currentUTCHour = now.getUTCHours();
-                // Período "silencioso": 21:00 UTC a 03:00 UTC (inclusive).
-                const isQuietHours = currentUTCHour >= 21 || currentUTCHour <= 3;
+                // Apenas marca a hora como "tratada" se o usuário silenciou o alarme manualmente.
+                // Isso evita que um METAR válido impeça um futuro alarme de ausência na mesma hora.
+                if (isManualSilence) {
+                    const now = new Date();
+                    const currentUTCHour = now.getUTCHours();
+                    const isQuietHours = currentUTCHour >= 21 || currentUTCHour <= 3;
 
-                if (isQuietHours) {
-                    // Garante que o estado se refere à hora atual antes de marcar como 'tratado'.
-                    if (currentUTCHour !== alarmState.lastCheckedUTCHour) {
-                        alarmState.lastCheckedUTCHour = currentUTCHour;
-                        alarmState.hasAlarmedThisHour = false; // Reseta ao mudar de hora.
+                    if (isQuietHours) {
+                        if (currentUTCHour !== alarmState.lastCheckedUTCHour) {
+                            alarmState.lastCheckedUTCHour = currentUTCHour;
+                            alarmState.hasAlarmedThisHour = false;
+                        }
+                        alarmState.hasAlarmedThisHour = true; 
                     }
-                    alarmState.hasAlarmedThisHour = true; // Marca a condição da hora atual como resolvida.
                 }
             }
 
@@ -866,7 +866,7 @@
                     } else { updateMetarDisplay('Nenhum METAR encontrado.'); if (new Date().getUTCMinutes() > 1) showMetarAlarm(); }
                 } catch (error) { updateMetarDisplay(`Falha na busca: ${error.message}`); if (new Date().getUTCMinutes() > 1) showMetarAlarm(); }
             }
-            silenceAlarmButton.addEventListener('click', hideMetarAlarm);
+            silenceAlarmButton.addEventListener('click', () => hideMetarAlarm(true));
 
             // --- LÓGICA DE GERAÇÃO DE RELATÓRIO ---
             const generateReportButton = document.getElementById('generateReportButton'), reportModal = document.getElementById('report-modal'),
