@@ -13,6 +13,13 @@
         .metric-value { font-size: 2.5rem; font-weight: 700; color: #1e40af; }
         .metric-label { font-size: 1rem; font-weight: 500; color: #6b7280; margin-top: 0.5rem; }
         .chart-container { background-color: white; border-radius: 0.75rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); padding: 1.5rem; }
+        .filter-container { background-color: white; border-radius: 0.75rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); padding: 1.5rem; }
+        .form-input { border: 1px solid #d1d5db; border-radius: 0.375rem; padding: 0.5rem 0.75rem; width: 100%; }
+        .btn { padding: 0.5rem 1rem; border-radius: 0.375rem; font-weight: 600; color: white; cursor: pointer; transition: background-color 0.2s; }
+        .btn-primary { background-color: #3b82f6; }
+        .btn-primary:hover { background-color: #2563eb; }
+        .btn-secondary { background-color: #6b7280; }
+        .btn-secondary:hover { background-color: #4b5563; }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -27,6 +34,30 @@
             <h1 class="text-4xl font-bold text-gray-800">Relatório de Atividade na Pista</h1>
             <p id="report-period" class="text-lg text-gray-500 mt-2"></p>
         </header>
+        
+        <!-- Filtros de Análise -->
+        <div class="filter-container mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                <div>
+                    <label for="start-datetime" class="block text-sm font-medium text-gray-700">Início</label>
+                    <input type="datetime-local" id="start-datetime" class="form-input mt-1">
+                </div>
+                <div>
+                    <label for="end-datetime" class="block text-sm font-medium text-gray-700">Fim</label>
+                    <input type="datetime-local" id="end-datetime" class="form-input mt-1">
+                </div>
+                <div>
+                    <label for="item-filter" class="block text-sm font-medium text-gray-700">Filtrar por Item</label>
+                    <select id="item-filter" class="form-input mt-1">
+                        <option value="todos">Todos os Itens</option>
+                    </select>
+                </div>
+                <div class="flex gap-2">
+                    <button id="apply-filters-btn" class="btn btn-primary w-full">Aplicar</button>
+                    <button id="clear-filters-btn" class="btn btn-secondary w-full">Limpar</button>
+                </div>
+            </div>
+        </div>
 
         <!-- Métricas Principais -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -63,103 +94,138 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // ********************************************************************
-            // ***** COLOQUE A MESMA URL DO SEU SCRIPT DO GOOGLE AQUI *****
-            // ********************************************************************
-            const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzX0NsWNtFM2EfPgc2zYpWeoByt3xgjyyGsDLeB9Brt11HAULCzfCe95_ORPlHWATO2xQ/exec"; // SUBSTITUA PELA SUA URL
+            const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzX0NsWNtFM2EfPgc2zYpWeoByt3xgjyyGsDLeB9Brt11HAULCzfCe95_ORPlHWATO2xQ/exec";
 
             const loadingDiv = document.getElementById('loading-state');
             const reportDiv = document.getElementById('report-content');
+            
+            const startDatetimeInput = document.getElementById('start-datetime');
+            const endDatetimeInput = document.getElementById('end-datetime');
+            const itemFilterSelect = document.getElementById('item-filter');
+            const applyFiltersBtn = document.getElementById('apply-filters-btn');
+            const clearFiltersBtn = document.getElementById('clear-filters-btn');
+
+            let allProcessedData = [];
+            let entradasChartInstance = null;
+            let horasChartInstance = null;
 
             async function fetchDataAndGenerateReport() {
                 try {
                     const response = await fetch(SCRIPT_URL);
-                    if (!response.ok) {
-                        throw new Error(`Erro na requisição: ${response.statusText}`);
-                    }
+                    if (!response.ok) throw new Error(`Erro na requisição: ${response.statusText}`);
                     const result = await response.json();
-                    if (result.status !== 'success') {
-                        throw new Error(`Erro retornado pelo script: ${result.message}`);
-                    }
+                    if (result.status !== 'success') throw new Error(`Erro retornado pelo script: ${result.message}`);
 
-                    processData(result.data);
+                    allProcessedData = result.data
+                        .map(row => {
+                            const match = (row.Evento || '').match(/:\s(.*?)\s(ENTROU|SAIU)/);
+                            return {
+                                timestamp: new Date(row.Timestamp),
+                                tipo: match ? match[1] : null,
+                                acao: match ? match[2] : null
+                            };
+                        })
+                        .filter(item => item.tipo && item.acao);
+
+                    populateItemFilter(allProcessedData);
+                    updateReport(allProcessedData);
 
                     loadingDiv.classList.add('hidden');
                     reportDiv.classList.remove('hidden');
-
                 } catch (error) {
                     loadingDiv.innerHTML = `<h1 class="text-2xl font-bold text-red-700">Falha ao Carregar Relatório</h1><p class="text-red-500">${error.message}</p>`;
                 }
             }
 
-            function processData(data) {
+            function populateItemFilter(data) {
+                const uniqueItems = [...new Set(data.map(item => item.tipo))];
+                uniqueItems.sort().forEach(item => {
+                    const option = document.createElement('option');
+                    option.value = item;
+                    option.textContent = item;
+                    itemFilterSelect.appendChild(option);
+                });
+            }
+            
+            function applyFilters() {
+                const startDate = startDatetimeInput.value ? new Date(startDatetimeInput.value) : null;
+                const endDate = endDatetimeInput.value ? new Date(endDatetimeInput.value) : null;
+                const selectedItem = itemFilterSelect.value;
+                
+                const filteredData = allProcessedData.filter(item => {
+                    const isAfterStartDate = !startDate || item.timestamp >= startDate;
+                    const isBeforeEndDate = !endDate || item.timestamp <= endDate;
+                    const matchesItem = selectedItem === 'todos' || item.tipo === selectedItem;
+                    return isAfterStartDate && isBeforeEndDate && matchesItem;
+                });
+                
+                updateReport(filteredData);
+            }
+            
+            function clearFilters() {
+                startDatetimeInput.value = '';
+                endDatetimeInput.value = '';
+                itemFilterSelect.value = 'todos';
+                updateReport(allProcessedData);
+            }
+
+            function updateReport(data) {
                 if (!data || data.length === 0) {
-                    loadingDiv.innerHTML = `<h1 class="text-2xl font-bold text-gray-700">Nenhum dado encontrado.</h1><p class="text-gray-500">A planilha parece estar vazia. Comece a gerar logs no painel.</p>`;
+                    // Limpa a tela se não houver dados após o filtro
+                    document.getElementById('total-entradas').textContent = '0';
+                    document.getElementById('item-mais-frequente').textContent = 'N/D';
+                    document.getElementById('hora-pico').textContent = 'N/D';
+                    document.getElementById('dia-pico').textContent = 'N/D';
+                    document.getElementById('report-period').textContent = 'Nenhum dado encontrado para o filtro selecionado.';
+                    if(entradasChartInstance) entradasChartInstance.destroy();
+                    if(horasChartInstance) horasChartInstance.destroy();
                     return;
                 }
-
-                // 1. Limpeza e Processamento dos Dados
-                const processedData = data
-                    .map(row => {
-                        const match = (row.Evento || '').match(/:\s(.*?)\s(ENTROU|SAIU)/);
-                        return {
-                            timestamp: new Date(row.Timestamp),
-                            tipo: match ? match[1] : null,
-                            acao: match ? match[2] : null
-                        };
-                    })
-                    .filter(item => item.tipo && item.acao); // Filtra apenas logs válidos
                 
-                const entradas = processedData.filter(d => d.acao === 'ENTROU');
+                const entradas = data.filter(d => d.acao === 'ENTROU');
                 if (entradas.length === 0) {
-                     loadingDiv.innerHTML = `<h1 class="text-2xl font-bold text-gray-700">Nenhum evento de 'ENTRADA' encontrado.</h1>`;
+                     document.getElementById('report-period').textContent = "Nenhum evento de 'ENTRADA' encontrado para o filtro selecionado.";
                      return;
                 }
                 
-                // Período do relatório
                 const firstDate = entradas.reduce((min, p) => p.timestamp < min ? p.timestamp : min, entradas[0].timestamp);
                 const lastDate = entradas.reduce((max, p) => p.timestamp > max ? p.timestamp : max, entradas[0].timestamp);
                 document.getElementById('report-period').textContent = `Análise do período de ${firstDate.toLocaleDateString('pt-BR')} a ${lastDate.toLocaleDateString('pt-BR')}`;
 
-                // 2. Cálculo das Métricas
-                // Total de Entradas
                 document.getElementById('total-entradas').textContent = entradas.length;
 
-                // Item mais frequente
                 const tipoCounts = entradas.reduce((acc, curr) => {
                     acc[curr.tipo] = (acc[curr.tipo] || 0) + 1;
                     return acc;
                 }, {});
-                const itemMaisFrequente = Object.keys(tipoCounts).reduce((a, b) => tipoCounts[a] > tipoCounts[b] ? a : b, 'N/D');
+                const itemMaisFrequente = Object.keys(tipoCounts).length > 0 ? Object.keys(tipoCounts).reduce((a, b) => tipoCounts[a] > tipoCounts[b] ? a : b) : 'N/D';
                 document.getElementById('item-mais-frequente').textContent = itemMaisFrequente;
 
-                // Hora de pico
                 const horaCounts = entradas.reduce((acc, curr) => {
                     const hour = curr.timestamp.getHours();
                     acc[hour] = (acc[hour] || 0) + 1;
                     return acc;
                 }, {});
-                const horaPico = Object.keys(horaCounts).reduce((a, b) => horaCounts[a] > horaCounts[b] ? a : b, -1);
-                document.getElementById('hora-pico').textContent = `${String(horaPico).padStart(2, '0')}:00`;
+                const horaPico = Object.keys(horaCounts).length > 0 ? Object.keys(horaCounts).reduce((a, b) => horaCounts[a] > horaCounts[b] ? a : b) : -1;
+                document.getElementById('hora-pico').textContent = horaPico !== -1 ? `${String(horaPico).padStart(2, '0')}:00` : 'N/D';
 
-                // Dia da semana de pico
                 const diasDaSemana = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
                 const diaCounts = entradas.reduce((acc, curr) => {
                     const day = diasDaSemana[curr.timestamp.getDay()];
                     acc[day] = (acc[day] || 0) + 1;
                     return acc;
                 }, {});
-                 const diaPico = Object.keys(diaCounts).reduce((a, b) => diaCounts[a] > diaCounts[b] ? a : b, 'N/D');
+                 const diaPico = Object.keys(diaCounts).length > 0 ? Object.keys(diaCounts).reduce((a, b) => diaCounts[a] > diaCounts[b] ? a : b) : 'N/D';
                  document.getElementById('dia-pico').textContent = diaPico;
 
-                // 3. Geração dos Gráficos
                 generateEntradasChart(tipoCounts);
                 generateHorasChart(horaCounts);
             }
             
             function generateEntradasChart(tipoCounts) {
+                if(entradasChartInstance) entradasChartInstance.destroy();
                 const ctx = document.getElementById('entradas-chart').getContext('2d');
-                new Chart(ctx, {
+                entradasChartInstance = new Chart(ctx, {
                     type: 'doughnut',
                     data: {
                         labels: Object.keys(tipoCounts),
@@ -176,20 +242,23 @@
             }
 
             function generateHorasChart(horaCounts) {
+                 if(horasChartInstance) horasChartInstance.destroy();
                  const ctx = document.getElementById('horas-chart').getContext('2d');
                  const labels = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
                  const data = labels.map((label, index) => horaCounts[index] || 0);
 
-                 new Chart(ctx, {
-                    type: 'bar',
+                 horasChartInstance = new Chart(ctx, {
+                    type: 'line',
                     data: {
                         labels: labels,
                         datasets: [{
                             label: 'Nº de Entradas',
                             data: data,
-                            backgroundColor: '#3b82f6',
-                            borderColor: '#1e40af',
-                            borderWidth: 1
+                            backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                            borderColor: '#3b82f6',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.1
                         }]
                     },
                     options: {
@@ -199,6 +268,9 @@
                     }
                 });
             }
+            
+            applyFiltersBtn.addEventListener('click', applyFilters);
+            clearFiltersBtn.addEventListener('click', clearFilters);
 
             fetchDataAndGenerateReport();
         });
@@ -206,3 +278,4 @@
 
 </body>
 </html>
+
