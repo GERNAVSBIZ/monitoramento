@@ -720,7 +720,7 @@
                 if (alarmLightIcon) { alarmLightIcon.visible(isOccupied); isOccupied ? alarmLightTween?.play() : alarmLightTween?.pause(); }
                 layer.batchDraw();
             }
-// --- VERSÃO FINAL COM SUA URL E DEPURAÇÃO ---
+// --- VERSÃO FINAL COM SUA NOVA URL E DEPURAÇÃO ---
 function addLogEntry(message) {
     const li = document.createElement('li');
     li.textContent = message;
@@ -728,8 +728,8 @@ function addLogEntry(message) {
     logList.prepend(li);
     setTimeout(() => li.classList.remove('new-entry'), 500);
 
-    // SUA URL REAL FOI INSERIDA AQUI
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzSQRPkOR-yEWYjhsNWINu_0NABh65xSrpdHbWRsPrBKnSwEu_2X7hTkaj_cALH_HgtLw/exec"; 
+    // SUA NOVA URL REAL FOI INSERIDA AQUI
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbygEjJJCyqNfS_I-_HYwiHtQKs9eCg3yqszlpG7j6-3vaxaF-uimuhDZJT1Uh7WOCFEpg/exec"; 
 
     // Esta versão do fetch nos permite ver a resposta do servidor no console.
     fetch(SCRIPT_URL, {
@@ -739,16 +739,14 @@ function addLogEntry(message) {
         },
         body: JSON.stringify({ message: message }), 
     })
-    .then(response => response.json()) // Tentamos ler a resposta JSON do script
+    .then(response => response.json()) 
     .then(data => {
-        // Se a comunicação for um sucesso, o script do Google retornará um status "success"
         console.log('Resposta do Google Script:', data);
         if (data.status !== 'success') {
           console.error('O Google Script retornou um erro:', data.message);
         }
     })
     .catch(error => {
-        // Se houver um erro de rede (URL errada, sem internet, etc.)
         console.error('Erro ao tentar enviar o log para o Google Sheets:', error);
     });
 }
