@@ -720,8 +720,7 @@
                 if (alarmLightIcon) { alarmLightIcon.visible(isOccupied); isOccupied ? alarmLightTween?.play() : alarmLightTween?.pause(); }
                 layer.batchDraw();
             }
-
-            // --- VERSÃO MODIFICADA PARA O GOOGLE SHEETS ---
+// --- VERSÃO FINAL COM SUA URL E DEPURAÇÃO ---
 function addLogEntry(message) {
     const li = document.createElement('li');
     li.textContent = message;
@@ -729,26 +728,29 @@ function addLogEntry(message) {
     logList.prepend(li);
     setTimeout(() => li.classList.remove('new-entry'), 500);
 
-    // --- INÍCIO DA MODIFICAÇÃO ---
-    // COLOQUE A URL DO SEU SCRIPT DO GOOGLE AQUI
-    const SCRIPT_URL = "https://script.google.com/macros/s/SUA_URL_UNICA_AQUI/exec"; 
+    // SUA URL REAL FOI INSERIDA AQUI
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzSQRPkOR-yEWYjhsNWINu_0NABh65xSrpdHbWRsPrBKnSwEu_2X7hTkaj_cALH_HgtLw/exec"; 
 
+    // Esta versão do fetch nos permite ver a resposta do servidor no console.
     fetch(SCRIPT_URL, {
         method: 'POST',
-        // O cabeçalho 'Content-Type' não é necessário para o Apps Script
-        // quando enviamos um payload de texto simples.
-        body: JSON.stringify({ message: message }),
-        mode: 'no-cors' // Modo no-cors pode ser necessário para o tipo de resposta do Google Script
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8', 
+        },
+        body: JSON.stringify({ message: message }), 
     })
-    .then(response => {
-        // Com 'no-cors', não podemos ler a resposta, mas a requisição é enviada.
-        // Apenas registramos que a tentativa foi feita.
-        console.log('Tentativa de envio de log para o Google Sheets realizada.');
+    .then(response => response.json()) // Tentamos ler a resposta JSON do script
+    .then(data => {
+        // Se a comunicação for um sucesso, o script do Google retornará um status "success"
+        console.log('Resposta do Google Script:', data);
+        if (data.status !== 'success') {
+          console.error('O Google Script retornou um erro:', data.message);
+        }
     })
     .catch(error => {
-        console.error('Erro de rede ao tentar enviar log:', error);
+        // Se houver um erro de rede (URL errada, sem internet, etc.)
+        console.error('Erro ao tentar enviar o log para o Google Sheets:', error);
     });
-    // --- FIM DA MODIFICAÇÃO ---
 }
 
             document.querySelectorAll('.icon-palette .icon-item').forEach(item => {
