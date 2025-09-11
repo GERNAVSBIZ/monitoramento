@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatório de Análise - Monitoramento de Pista</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .metric-card { background-color: white; border-radius: 0.75rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); padding: 1.5rem; text-align: center; }
+        .metric-value { font-size: 2.5rem; font-weight: 700; color: #1e40af; }
+        .metric-label { font-size: 1rem; font-weight: 500; color: #6b7280; margin-top: 0.5rem; }
+        .chart-container { background-color: white; border-radius: 0.75rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); padding: 1.5rem; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div id="loading-state" class="text-center">
+        <h1 class="text-2xl font-bold text-gray-700">Carregando Relatório...</h1>
+        <p class="text-gray-500">Buscando e analisando dados da planilha. Isso pode levar alguns segundos.</p>
+    </div>
+
+    <div id="report-content" class="hidden">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800">Relatório de Atividade na Pista</h1>
+            <p id="report-period" class="text-lg text-gray-500 mt-2"></p>
+        </header>
+
+        <!-- Métricas Principais -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="metric-card">
+                <div id="total-entradas" class="metric-value">0</div>
+                <div class="metric-label">Total de Entradas na Pista</div>
+            </div>
+            <div class="metric-card">
+                <div id="item-mais-frequente" class="metric-value">N/D</div>
+                <div class="metric-label">Item Mais Frequente</div>
+            </div>
+            <div class="metric-card">
+                <div id="hora-pico" class="metric-value">00:00</div>
+                <div class="metric-label">Horário de Maior Movimento</div>
+            </div>
+            <div class="metric-card">
+                <div id="dia-pico" class="metric-value">N/D</div>
+                <div class="metric-label">Dia da Semana Mais Movimentado</div>
+            </div>
+        </div>
+
+        <!-- Gráficos -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="chart-container">
+                <h2 class="text-xl font-semibold text-gray-700 mb-4 text-center">Distribuição de Entradas por Tipo</h2>
+                <canvas id="entradas-chart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h2 class="text-xl font-semibold text-gray-700 mb-4 text-center">Atividade por Hora do Dia</h2>
+                <canvas id="horas-chart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // ********************************************************************
+            // ***** COLOQUE A MESMA URL DO SEU SCRIPT DO GOOGLE AQUI *****
+            // ********************************************************************
+            const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzX0NsWNtFM2EfPgc2zYpWeoByt3xgjyyGsDLeB9Brt11HAULCzfCe95_ORPlHWATO2xQ/exec"; // SUBSTITUA PELA SUA URL
+
+            const loadingDiv = document.getElementById('loading-state');
+            const reportDiv = document.getElementById('report-content');
+
+            async function fetchDataAndGenerateReport() {
+                try {
+                    const response = await fetch(SCRIPT_URL);
+                    if (!response.ok) {
+                        throw new Error(`Erro na requisição: ${response.statusText}`);
+                    }
+                    const result = await response.json();
+                    if (result.status !== 'success') {
+                        throw new Error(`Erro retornado pelo script: ${result.message}`);
+                    }
+
+                    processData(result.data);
+
+                    loadingDiv.classList.add('hidden');
+                    reportDiv.classList.remove('hidden');
+
+                } catch (error) {
+                    loadingDiv.innerHTML = `<h1 class="text-2xl font-bold text-red-700">Falha ao Carregar Relatório</h1><p class="text-red-500">${error.message}</p>`;
+                }
+            }
+
+            function processData(data) {
+                if (!data || data.length === 0) {
+                    loadingDiv.innerHTML = `<h1 class="text-2xl font-bold text-gray-700">Nenhum dado encontrado.</h1><p class="text-gray-500">A planilha parece estar vazia. Comece a gerar logs no painel.</p>`;
+                    return;
+                }
+
+                // 1. Limpeza e Processamento dos Dados
+                const processedData = data
+                    .map(row => {
+                        const match = (row.Evento || '').match(/:\s(.*?)\s(ENTROU|SAIU)/);
+                        return {
+                            timestamp: new Date(row.Timestamp),
+                            tipo: match ? match[1] : null,
+                            acao: match ? match[2] : null
+                        };
+                    })
+                    .filter(item => item.tipo && item.acao); // Filtra apenas logs válidos
+                
+                const entradas = processedData.filter(d => d.acao === 'ENTROU');
+                if (entradas.length === 0) {
+                     loadingDiv.innerHTML = `<h1 class="text-2xl font-bold text-gray-700">Nenhum evento de 'ENTRADA' encontrado.</h1>`;
+                     return;
+                }
+                
+                // Período do relatório
+                const firstDate = entradas.reduce((min, p) => p.timestamp < min ? p.timestamp : min, entradas[0].timestamp);
+                const lastDate = entradas.reduce((max, p) => p.timestamp > max ? p.timestamp : max, entradas[0].timestamp);
+                document.getElementById('report-period').textContent = `Análise do período de ${firstDate.toLocaleDateString('pt-BR')} a ${lastDate.toLocaleDateString('pt-BR')}`;
+
+                // 2. Cálculo das Métricas
+                // Total de Entradas
+                document.getElementById('total-entradas').textContent = entradas.length;
+
+                // Item mais frequente
+                const tipoCounts = entradas.reduce((acc, curr) => {
+                    acc[curr.tipo] = (acc[curr.tipo] || 0) + 1;
+                    return acc;
+                }, {});
+                const itemMaisFrequente = Object.keys(tipoCounts).reduce((a, b) => tipoCounts[a] > tipoCounts[b] ? a : b, 'N/D');
+                document.getElementById('item-mais-frequente').textContent = itemMaisFrequente;
+
+                // Hora de pico
+                const horaCounts = entradas.reduce((acc, curr) => {
+                    const hour = curr.timestamp.getHours();
+                    acc[hour] = (acc[hour] || 0) + 1;
+                    return acc;
+                }, {});
+                const horaPico = Object.keys(horaCounts).reduce((a, b) => horaCounts[a] > horaCounts[b] ? a : b, -1);
+                document.getElementById('hora-pico').textContent = `${String(horaPico).padStart(2, '0')}:00`;
+
+                // Dia da semana de pico
+                const diasDaSemana = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+                const diaCounts = entradas.reduce((acc, curr) => {
+                    const day = diasDaSemana[curr.timestamp.getDay()];
+                    acc[day] = (acc[day] || 0) + 1;
+                    return acc;
+                }, {});
+                 const diaPico = Object.keys(diaCounts).reduce((a, b) => diaCounts[a] > diaCounts[b] ? a : b, 'N/D');
+                 document.getElementById('dia-pico').textContent = diaPico;
+
+                // 3. Geração dos Gráficos
+                generateEntradasChart(tipoCounts);
+                generateHorasChart(horaCounts);
+            }
+            
+            function generateEntradasChart(tipoCounts) {
+                const ctx = document.getElementById('entradas-chart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(tipoCounts),
+                        datasets: [{
+                            label: 'Nº de Entradas',
+                            data: Object.values(tipoCounts),
+                            backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6b7280'],
+                            borderColor: '#ffffff',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+            }
+
+            function generateHorasChart(horaCounts) {
+                 const ctx = document.getElementById('horas-chart').getContext('2d');
+                 const labels = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
+                 const data = labels.map((label, index) => horaCounts[index] || 0);
+
+                 new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Nº de Entradas',
+                            data: data,
+                            backgroundColor: '#3b82f6',
+                            borderColor: '#1e40af',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+                    }
+                });
+            }
+
+            fetchDataAndGenerateReport();
+        });
+    </script>
+
+</body>
+</html>
