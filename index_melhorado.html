@@ -877,6 +877,19 @@
             </div>
             
             <div class="form-group">
+                <label for="icaoCodeInput">Código ICAO do Aeroporto</label>
+                <input type="text" id="icaoCodeInput" placeholder="Ex: SBIZ" value="SBIZ">
+            </div>
+            
+            <div class="form-group">
+                <label for="soundAlarmToggle">Ativar Som do Alarme METAR</label>
+                <label class="switch">
+                    <input type="checkbox" id="soundAlarmToggle" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+            
+            <div class="form-group">
                 <label for="pollIntervalInput">Intervalo de Atualização METAR (ms)</label>
                 <input type="number" id="pollIntervalInput" min="5000" max="300000" step="1000" value="30000">
             </div>
@@ -958,6 +971,8 @@
             const settings = {
                 darkMode: false,
                 pollInterval: 30000,
+                icaoCode: 'SBIZ', // Adicionado o código ICAO padrão
+                soundAlarm: true, // Adicionado a opção de som do alarme
                 perimeterX: 10,
                 perimeterY: 20,
                 perimeterWidth: 80,
@@ -977,13 +992,15 @@
             }
 
             function updateUIFromSettings() {
-                document.body.classList.toggle('light-mode', !settings.darkMode);
-                document.getElementById('darkModeToggle').checked = settings.darkMode;
-                document.getElementById('pollIntervalInput').value = settings.pollInterval;
-                document.getElementById('perimeterXInput').value = settings.perimeterX;
-                document.getElementById('perimeterYInput').value = settings.perimeterY;
-                document.getElementById('perimeterWidthInput').value = settings.perimeterWidth;
-                document.getElementById('perimeterHeightInput').value = settings.perimeterHeight;
+                document.body.classList.toggle("light-mode", !settings.darkMode);
+                document.getElementById("darkModeToggle").checked = settings.darkMode;
+                document.getElementById("icaoCodeInput").value = settings.icaoCode;
+                document.getElementById("soundAlarmToggle").checked = settings.soundAlarm;
+                document.getElementById("pollIntervalInput").value = settings.pollInterval;
+                document.getElementById("perimeterXInput").value = settings.perimeterX;
+                document.getElementById("perimeterYInput").value = settings.perimeterY;
+                document.getElementById("perimeterWidthInput").value = settings.perimeterWidth;
+                document.getElementById("perimeterHeightInput").value = settings.perimeterHeight;
             }
 
             function saveIconsState() {
@@ -1443,6 +1460,7 @@
                 pollingIntervalIdMetar = setInterval(fetchMetarSpeci, settings.pollInterval);
             }
             
+            // ATUALIZADO: Esconde o alarme e gerencia o estado para o período noturno.
             function hideMetarAlarm(isManualSilence = false) {
                 silenceAlarmButton.style.display = 'none';
                 metarDisplayKonvaContainer.classList.remove('metar-alert');
@@ -1454,19 +1472,62 @@
 
                 if (isManualSilence) {
                     const now = new Date();
-                    const utcHour = now.getUTCHours();
-                    alarmState.lastCheckedUTCHour = utcHour;
-                    alarmState.hasAlarmedThisHour = true;
+                    const currentUTCHour = now.getUTCHours();
+                    const currentUTCMinutes = now.getUTCMinutes();
+                    
+                    // NOVO Período Silencioso: Entre 21:00 UTC e 03:15 UTC.
+                    const isQuietHours = (currentUTCHour >= 21) || (currentUTCHour < 3) || (currentUTCHour === 3 && currentUTCMinutes <= 15);
+
+                    if (isQuietHours) {
+                        // Garante que o estado da hora seja atualizado
+                        if (currentUTCHour !== alarmState.lastCheckedUTCHour) {
+                            alarmState.lastCheckedUTCHour = currentUTCHour;
+                        }
+                        // Marca que o alarme para esta hora foi silenciado
+                        alarmState.hasAlarmedThisHour = true;
+                    }
                 }
             }
 
+            // ATUALIZADO: Mostra o alarme visual e decide se toca o som com base no horário UTC.
             function showMetarAlarm() {
+                const now = new Date();
+                const currentUTCHour = now.getUTCHours();
+                const currentUTCMinutes = now.getUTCMinutes();
+
+                // Reseta o estado do alarme se a hora UTC mudou.
+                if (currentUTCHour !== alarmState.lastCheckedUTCHour) {
+                    alarmState.lastCheckedUTCHour = currentUTCHour;
+                    alarmState.hasAlarmedThisHour = false;
+                }
+
+                // NOVO Período Silencioso: Entre 21:00 UTC e 03:15 UTC.
+                const isQuietHours = (currentUTCHour >= 21) || (currentUTCHour < 3) || (currentUTCHour === 3 && currentUTCMinutes <= 15);
+
+                let shouldPlaySound = true;
+                const shouldLoopSound = !isQuietHours; // O som só repete fora do período "silencioso".
+
+                if (isQuietHours) {
+                    if (alarmState.hasAlarmedThisHour) {
+                        // Se o alarme já foi acionado ou silenciado nesta hora, não toca o som de novo.
+                        shouldPlaySound = false;
+                    }
+                }
+
+                // O alerta visual sempre aparece.
                 silenceAlarmButton.style.display = 'flex';
                 metarDisplayKonvaContainer.classList.add('metar-alert');
-                
-                if (!isAlarmPlayingMetar) {
-                    metarAlarmSound.play().catch(e => console.log('Não foi possível reproduzir o som do alarme:', e));
+
+                // Toca o alarme sonoro apenas se permitido e se já não estiver tocando.
+                if (shouldPlaySound && settings.soundAlarm && !isAlarmPlayingMetar) {
+                    metarAlarmSound.loop = shouldLoopSound;
+                    metarAlarmSound.play().catch(e => console.error("Falha ao tocar áudio.", e));
                     isAlarmPlayingMetar = true;
+                    
+                    // Se o alarme tocou durante o período noturno, marca para não repetir na mesma hora.
+                    if (isQuietHours) {
+                        alarmState.hasAlarmedThisHour = true;
+                    }
                 }
             }
 
@@ -1483,47 +1544,69 @@
             }
 
             async function fetchMetarSpeci() {
+                if (!settings.icaoCode) {
+                    updateMetarDisplay('Insira um código ICAO.');
+                    return;
+                }
+                updateMetarDisplay('Carregando...');
+                const now = new Date();
+                const oneHourAgo = new Date(now.getTime() - 3600000);
+                const formatDT = (d) => d.toISOString().slice(0, 13).replace(/[-T]/g, '');
+                const url = `https://api-redemet.decea.mil.br/mensagens/metar/${settings.icaoCode}?api_key=${API_KEY}&data_ini=${formatDT(oneHourAgo)}&data_fim=${formatDT(now)}`;
+
+                let triggerAlarm = false;
+
                 try {
-                    const response = await fetch(`https://api.checkwx.com/metar/SBIZ/decoded`, {
-                        headers: { 'X-API-Key': API_KEY }
-                    });
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    
+                    const response = await fetch(url, { cache: 'no-store' });
+                    if (!response.ok) throw new Error(`Erro ${response.status}`);
                     const data = await response.json();
+                    const messages = data?.data?.data;
                     
-                    if (data.results > 0 && data.data && data.data.length > 0) {
-                        const metar = data.data[0];
-                        const rawMetar = metar.raw_text || 'METAR não disponível';
+                    const nowUTCHour = now.getUTCHours();
+                    const nowUTCMinute = now.getUTCMinutes();
+
+                    if (messages && messages.length > 0) {
+                        messages.sort((a, b) => new Date(b.recebimento) - new Date(a.recebimento));
+                        const latestMessage = messages[0].mens;
+                        updateMetarDisplay(latestMessage);
+
+                        const msgTimeMatch = latestMessage.match(/\s\d{2}(\d{2})\d{2}Z/);
+                        const msgHour = msgTimeMatch ? parseInt(msgTimeMatch[1], 10) : -1;
                         
-                        updateMetarDisplay(rawMetar);
-                        
-                        const hasLowVisibility = metar.visibility && metar.visibility.meters_float < 1000;
-                        const hasStrongWind = metar.wind && metar.wind.speed_kts > 25;
-                        const hasThunderstorm = rawMetar.includes('TS') || rawMetar.includes('+TS');
-                        
-                        if ((hasLowVisibility || hasStrongWind || hasThunderstorm) && shouldTriggerAlarm()) {
-                            showMetarAlarm();
-                            alarmState.hasAlarmedThisHour = true;
-                            
-                            let alertReason = [];
-                            if (hasLowVisibility) alertReason.push('baixa visibilidade');
-                            if (hasStrongWind) alertReason.push('vento forte');
-                            if (hasThunderstorm) alertReason.push('tempestade');
-                            
-                            addLogEntry(`${new Date().toLocaleString('pt-BR')}: ALERTA METAR - ${alertReason.join(', ')}`);
-                        } else {
-                            hideMetarAlarm();
+                        // REGRA: METAR da Hora Anterior
+                        // Aciona o alarme se a hora da mensagem for diferente da hora atual E já passou 1 minuto.
+                        if (msgHour !== nowUTCHour && nowUTCMinute > 1) {
+                            // EXCEÇÃO: Estamos no período de espera do SPECI das 03:15 (entre 03:02 e 03:15 UTC).
+                            // Se o último METAR é da hora 2, não acione o alarme ainda.
+                            if (nowUTCHour === 3 && nowUTCMinute <= 15 && msgHour === 2) {
+                                triggerAlarm = false;
+                            } else {
+                                triggerAlarm = true;
+                            }
                         }
-                        
+
                     } else {
-                        updateMetarDisplay('Nenhum METAR disponível para SBIZ');
+                        // REGRA: Nenhum METAR Encontrado
+                        updateMetarDisplay('Nenhum METAR encontrado.');
+                        if (nowUTCMinute > 1) {
+                             // EXCEÇÃO: Não aciona alarme de ausência se estivermos esperando o SPECI das 03:15.
+                            if (!(nowUTCHour === 3 && nowUTCMinute <= 15)) {
+                                triggerAlarm = true;
+                            }
+                        }
                     }
                 } catch (error) {
-                    console.error('Erro ao buscar METAR:', error);
-                    updateMetarDisplay('Erro ao carregar METAR');
+                    // REGRA: Falha na Comunicação com a API
+                    updateMetarDisplay(`Falha na busca: ${error.message}`);
+                    if (new Date().getUTCMinutes() > 1) {
+                        triggerAlarm = true;
+                    }
+                }
+
+                if (triggerAlarm) {
+                    showMetarAlarm();
+                } else {
+                    hideMetarAlarm();
                 }
             }
 
@@ -1546,7 +1629,9 @@
 
             saveSettingsBtn.addEventListener('click', () => {
                 settings.darkMode = document.getElementById('darkModeToggle').checked;
-                settings.pollInterval = parseInt(document.getElementById('pollIntervalInput').value);
+                settings.icaoCode = document.getElementById("icaoCodeInput").value.toUpperCase();
+                settings.pollInterval = parseInt(document.getElementById("pollIntervalInput").value);
+                settings.soundAlarm = document.getElementById("soundAlarmToggle").checked;
                 settings.perimeterX = parseInt(document.getElementById('perimeterXInput').value);
                 settings.perimeterY = parseInt(document.getElementById('perimeterYInput').value);
                 settings.perimeterWidth = parseInt(document.getElementById('perimeterWidthInput').value);
