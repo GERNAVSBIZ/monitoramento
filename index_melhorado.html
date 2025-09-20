@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitor Aeroporto Imperatriz</title>
+    <title>Monit Aeroporto Imperatriz</title>
     <script src="https://unpkg.com/konva@9.3.0/konva.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -765,29 +765,29 @@
                 </div>
                 
                 <div class="icon-palette">
-                    <div class="icon-item" data-icon-type="Pessoal Obra" data-image-url="cones.png">
-                        <img src="cones.png" alt="Cone">
+                    <div class="icon-item" data-icon-type="Pessoal Obra" data-image-url="upload/cones.png">
+                        <img src="upload/cones.png" alt="Cone">
                     </div>
-                    <div class="icon-item" data-icon-type="Ambulancia" data-image-url="ambulancia.png">
-                        <img src="ambulancia.png" alt="Ambulancia">
+                    <div class="icon-item" data-icon-type="Ambulancia" data-image-url="upload/ambulancia.png">
+                        <img src="upload/ambulancia.png" alt="Ambulancia">
                     </div>
-                    <div class="icon-item" data-icon-type="SCI" data-image-url="bombeiros.png">
-                        <img src="bombeiros.png" alt="Bombeiros">
+                    <div class="icon-item" data-icon-type="SCI" data-image-url="upload/bombeiros.png">
+                        <img src="upload/bombeiros.png" alt="Bombeiros">
                     </div>
-                    <div class="icon-item" data-icon-type="Avião" data-image-url="aviao.png">
-                        <img src="aviao.png" alt="Avião">
+                    <div class="icon-item" data-icon-type="Avião" data-image-url="upload/aviao.png">
+                        <img src="upload/aviao.png" alt="Avião">
                     </div>
-                    <div class="icon-item" data-icon-type="Manutenção" data-image-url="ferramentas.png">
-                        <img src="ferramentas.png" alt="Ferramentas">
+                    <div class="icon-item" data-icon-type="Manutenção" data-image-url="upload/ferramentas.png">
+                        <img src="upload/ferramentas.png" alt="Ferramentas">
                     </div>
-                    <div class="icon-item" data-icon-type="Viatura" data-image-url="viatura.png">
-                        <img src="viatura.png" alt="Viatura">
+                    <div class="icon-item" data-icon-type="Viatura" data-image-url="upload/viatura.png">
+                        <img src="upload/viatura.png" alt="Viatura">
                     </div>
-                    <div class="icon-item" data-icon-type="Pessoa" data-image-url="pessoas.png">
-                        <img src="pessoas.png" alt="Pessoa">
+                    <div class="icon-item" data-icon-type="Pessoa" data-image-url="upload/pessoas.png">
+                        <img src="upload/pessoas.png" alt="Pessoa">
                     </div>
-                    <div class="icon-item" data-icon-type="Animais" data-image-url="animais.png">
-                        <img src="animais.png" alt="Animais">
+                    <div class="icon-item" data-icon-type="Animais" data-image-url="upload/animais.png">
+                        <img src="upload/animais.png" alt="Animais">
                     </div>
                 </div>
                 
@@ -945,8 +945,8 @@
     </div>
 
     <audio id="metar-alarm-sound" preload="auto">
-        <source src="alarm.mp3" type="audio/mpeg">
-        <source src="alarm.mp3" type="audio/wav">
+        <source src="upload/alarm.mp3" type="audio/mpeg">
+        <source src="upload/alarm.wav" type="audio/wav">
     </audio>
 
     <script>
@@ -1059,6 +1059,29 @@
             function initRunwayCanvas() {
                 layer.destroyChildren();
                 
+                // Primeiro, criamos o retângulo da área de segurança
+                runwayPerimeter = new Konva.Rect({
+                    x: stage.width() * (settings.perimeterX / 100),
+                    y: stage.height() * (settings.perimeterY / 100),
+                    width: stage.width() * (settings.perimeterWidth / 100),
+                    height: stage.height() * (settings.perimeterHeight / 100),
+                    fill: 'transparent',
+                    stroke: '#3b82f6',
+                    strokeWidth: 3,
+                    dash: [10, 5],
+                    listening: false
+                });
+                layer.add(runwayPerimeter);
+
+                perimeterAlarmTween = new Konva.Tween({
+                    node: runwayPerimeter,
+                    duration: 1,
+                    fill: 'rgba(239, 68, 68, 0.3)',
+                    yoyo: true,
+                    iterations: Konva.Tween.INFINITE
+                });
+                
+                // Depois, carregamos a imagem da pista por cima
                 try {
                     const imgElement = new Image();
                     imgElement.onload = () => {
@@ -1083,37 +1106,17 @@
                             height: finalHeight
                         });
                         layer.add(image);
-                        image.moveToBottom();
+                        // A imagem é adicionada depois do retângulo, então ficará por cima
+                        
+                        layer.batchDraw();
+                        loadIconsState();
                     };
-                    imgElement.src = 'pistapng.png';
+                    imgElement.src = 'upload/pista.jpg';
                 } catch (e) {
                     console.error("Não foi possível carregar a imagem da pista.");
+                    layer.batchDraw();
+                    loadIconsState();
                 }
-
-                runwayPerimeter = new Konva.Rect({
-                    x: stage.width() * (settings.perimeterX / 100),
-                    y: stage.height() * (settings.perimeterY / 100),
-                    width: stage.width() * (settings.perimeterWidth / 100),
-                    height: stage.height() * (settings.perimeterHeight / 100),
-                    fill: 'transparent',
-                    stroke: '#3b82f6',
-                    strokeWidth: 3,
-                    dash: [10, 5],
-                    listening: false
-                });
-                layer.add(runwayPerimeter);
-                runwayPerimeter.moveToBottom();
-
-                perimeterAlarmTween = new Konva.Tween({
-                    node: runwayPerimeter,
-                    duration: 1,
-                    fill: 'rgba(239, 68, 68, 0.3)',
-                    yoyo: true,
-                    iterations: Konva.Tween.INFINITE
-                });
-                
-                layer.batchDraw();
-                loadIconsState();
             }
 
             function createAlarmLight() {
@@ -1138,7 +1141,7 @@
                     });
                     layer.batchDraw();
                 };
-                // img.src = 'luz_vermelha.png'; // Removido conforme solicitação do usuário
+                // img.src = 'upload/luz_vermelha.png'; // Removido conforme solicitação do usuário
             }
 
             const contextMenu = document.getElementById('context-menu');
