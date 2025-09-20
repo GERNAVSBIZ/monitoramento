@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor Aeroporto Imperatriz - Teste Numeração</title>
+    <script src="https://unpkg.com/konva@9.3.0/konva.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #0f172a;
+            color: white;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .icon-palette {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #1e293b;
+            border-radius: 10px;
+        }
+        
+        .icon-item {
+            aspect-ratio: 1;
+            cursor: pointer;
+            border-radius: 8px;
+            background: #334155;
+            border: 2px solid #475569;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            transition: all 0.3s;
+            font-size: 12px;
+            text-align: center;
+            padding: 10px;
+        }
+        
+        .icon-item:hover {
+            transform: translateY(-2px);
+            border-color: #3b82f6;
+            background: #475569;
+        }
+        
+        .icon-item i {
+            font-size: 24px;
+            margin-bottom: 5px;
+            color: #3b82f6;
+        }
+        
+        .status-display {
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }
+        
+        .status-display.active {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+        
+        .runway-canvas {
+            border: 2px solid #475569;
+            background: #ffffff;
+            border-radius: 10px;
+            width: 100%;
+            height: 400px;
+            margin-bottom: 20px;
+        }
+        
+        .log-area {
+            background: #1e293b;
+            border-radius: 10px;
+            padding: 20px;
+            height: 200px;
+            overflow-y: auto;
+        }
+        
+        .log-area h3 {
+            margin-top: 0;
+            color: #3b82f6;
+        }
+        
+        .log-area ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .log-area li {
+            padding: 8px 12px;
+            margin-bottom: 5px;
+            background: #334155;
+            border-radius: 5px;
+            border-left: 3px solid #3b82f6;
+            font-size: 14px;
+        }
+        
+        .context-menu {
+            display: none;
+            position: absolute;
+            z-index: 1000;
+            background: #1e293b;
+            border: 1px solid #475569;
+            border-radius: 8px;
+            padding: 5px 0;
+            min-width: 150px;
+        }
+        
+        .context-menu button {
+            width: 100%;
+            background: none;
+            border: none;
+            text-align: left;
+            padding: 8px 12px;
+            cursor: pointer;
+            color: white;
+            font-size: 14px;
+        }
+        
+        .context-menu button:hover {
+            background: #334155;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-plane"></i> Monitor Aeroporto Imperatriz - Teste Numeração</h1>
+        </div>
+        
+        <div class="icon-palette">
+            <div class="icon-item" data-icon-type="Ambulancia">
+                <i class="fas fa-ambulance"></i>
+                <span>Ambulância</span>
+            </div>
+            <div class="icon-item" data-icon-type="SCI">
+                <i class="fas fa-fire-extinguisher"></i>
+                <span>SCI</span>
+            </div>
+            <div class="icon-item" data-icon-type="Viatura">
+                <i class="fas fa-car"></i>
+                <span>Viatura</span>
+            </div>
+            <div class="icon-item" data-icon-type="Manutencao">
+                <i class="fas fa-tools"></i>
+                <span>Manutenção</span>
+            </div>
+            <div class="icon-item" data-icon-type="Pessoa">
+                <i class="fas fa-user"></i>
+                <span>Pessoa</span>
+            </div>
+            <div class="icon-item" data-icon-type="Animais">
+                <i class="fas fa-paw"></i>
+                <span>Animais</span>
+            </div>
+        </div>
+        
+        <div id="alarm-display" class="status-display">
+            <i class="fas fa-check-circle"></i>
+            Pista Livre
+        </div>
+        
+        <div id="konva-container" class="runway-canvas"></div>
+        
+        <div class="log-area">
+            <h3><i class="fas fa-history"></i> Log de Eventos</h3>
+            <ul id="log-list"></ul>
+        </div>
+    </div>
+    
+    <div id="context-menu" class="context-menu">
+        <button id="remove-icon-btn">
+            <i class="fas fa-trash-alt"></i> 
+            Remover Ícone
+        </button>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const stage = new Konva.Stage({
+                container: 'konva-container',
+                width: document.getElementById('konva-container').offsetWidth,
+                height: 400
+            });
+            
+            const layer = new Konva.Layer();
+            stage.add(layer);
+            
+            const alarmDisplay = document.getElementById('alarm-display');
+            const logList = document.getElementById('log-list');
+            
+            let runwayPerimeter;
+            
+            // Sistema de numeração para ícones do mesmo tipo
+            function getIconsInPerimeter() {
+                return layer.find('Group').filter(group => group.attrs.isCurrentlyInside);
+            }
+
+            function getIconsOfTypeInPerimeter(iconType) {
+                return getIconsInPerimeter().filter(group => {
+                    return group.getAttr('iconType') === iconType;
+                });
+            }
+
+            function updateIconNumbering(iconType) {
+                const iconsOfType = getIconsOfTypeInPerimeter(iconType);
+                
+                // Se há apenas um ícone do tipo, remove a numeração
+                if (iconsOfType.length <= 1) {
+                    iconsOfType.forEach(group => {
+                        const numberText = group.findOne('.number-text');
+                        if (numberText) {
+                            numberText.destroy();
+                        }
+                    });
+                } else {
+                    // Se há múltiplos ícones, adiciona numeração
+                    iconsOfType.forEach((group, index) => {
+                        let numberText = group.findOne('.number-text');
+                        
+                        if (!numberText) {
+                            numberText = new Konva.Text({
+                                text: (index + 1).toString(),
+                                fontSize: 16,
+                                fontFamily: 'Arial, sans-serif',
+                                fill: 'white',
+                                background: '#3b82f6',
+                                padding: 4,
+                                cornerRadius: 8,
+                                name: 'number-text',
+                                x: 35,
+                                y: -5
+                            });
+                            
+                            // Adiciona fundo azul para o número
+                            const numberBg = new Konva.Rect({
+                                width: 20,
+                                height: 20,
+                                fill: '#3b82f6',
+                                cornerRadius: 10,
+                                x: 35,
+                                y: -5,
+                                name: 'number-bg'
+                            });
+                            
+                            group.add(numberBg);
+                            group.add(numberText);
+                        } else {
+                            numberText.text((index + 1).toString());
+                        }
+                    });
+                }
+                
+                layer.batchDraw();
+            }
+
+            function updateAllIconNumbering() {
+                const iconsInPerimeter = getIconsInPerimeter();
+                const typeGroups = {};
+                
+                // Agrupa ícones por tipo
+                iconsInPerimeter.forEach(group => {
+                    const type = group.getAttr('iconType');
+                    if (type) {
+                        if (!typeGroups[type]) {
+                            typeGroups[type] = [];
+                        }
+                        typeGroups[type].push(group);
+                    }
+                });
+                
+                // Atualiza numeração para cada tipo
+                Object.keys(typeGroups).forEach(type => {
+                    updateIconNumbering(type);
+                });
+            }
+
+            // Drag and drop functionality
+            document.querySelectorAll('.icon-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const iconType = item.dataset.iconType;
+                    addDraggableIcon(iconType);
+                });
+            });
+
+            function updateAlarmStatus() {
+                const iconsInside = layer.find('Group').filter(group => group.attrs.isCurrentlyInside);
+                
+                if (iconsInside.length > 0) {
+                    alarmDisplay.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Pista Ocupada';
+                    alarmDisplay.classList.add('active');
+                } else {
+                    alarmDisplay.innerHTML = '<i class="fas fa-check-circle"></i> Pista Livre';
+                    alarmDisplay.classList.remove('active');
+                }
+            }
+
+            function addLogEntry(message) {
+                const li = document.createElement('li');
+                li.textContent = message;
+                logList.prepend(li);
+            }
+
+            function initRunwayCanvas() {
+                layer.destroyChildren();
+                
+                // Área de segurança da pista (retângulo azul tracejado)
+                runwayPerimeter = new Konva.Rect({
+                    x: stage.width() * 0.1,
+                    y: stage.height() * 0.2,
+                    width: stage.width() * 0.8,
+                    height: stage.height() * 0.6,
+                    fill: 'transparent',
+                    stroke: '#3b82f6',
+                    strokeWidth: 3,
+                    dash: [10, 5],
+                    listening: false
+                });
+                layer.add(runwayPerimeter);
+                
+                // Simula uma pista
+                const runway = new Konva.Rect({
+                    x: stage.width() * 0.2,
+                    y: stage.height() * 0.3,
+                    width: stage.width() * 0.6,
+                    height: stage.height() * 0.4,
+                    fill: '#666666',
+                    listening: false
+                });
+                layer.add(runway);
+                
+                // Linhas da pista
+                const centerLine = new Konva.Line({
+                    points: [stage.width() * 0.2, stage.height() * 0.5, stage.width() * 0.8, stage.height() * 0.5],
+                    stroke: 'white',
+                    strokeWidth: 2,
+                    dash: [20, 10],
+                    listening: false
+                });
+                layer.add(centerLine);
+                
+                layer.batchDraw();
+            }
+
+            const contextMenu = document.getElementById('context-menu');
+            const removeIconBtn = document.getElementById('remove-icon-btn');
+            let currentIconTarget = null;
+
+            window.addEventListener('click', (e) => {
+                contextMenu.style.display = 'none';
+            });
+
+            function handleRemove() {
+                if (currentIconTarget) {
+                    const group = currentIconTarget.getParent();
+                    const iconType = group.getAttr('iconType');
+                    
+                    if (group.getAttr('timerId')) {
+                        clearInterval(group.getAttr('timerId'));
+                    }
+                    addLogEntry(`${new Date().toLocaleString('pt-BR')}: ${iconType} removido.`);
+                    group.destroy();
+                    
+                    // Atualiza numeração após remoção
+                    updateIconNumbering(iconType);
+                    updateAlarmStatus();
+                }
+            }
+
+            removeIconBtn.addEventListener('click', () => {
+                handleRemove();
+                contextMenu.style.display = 'none';
+            });
+
+            function addDraggableIcon(iconType) {
+                const group = new Konva.Group({
+                    x: Math.random() * (stage.width() - 60),
+                    y: Math.random() * (stage.height() - 60),
+                    draggable: true
+                });
+                
+                group.setAttr('iconType', iconType);
+                
+                // Cria um círculo colorido para representar o ícone
+                const colors = {
+                    'Ambulancia': '#ef4444',
+                    'SCI': '#f59e0b',
+                    'Viatura': '#3b82f6',
+                    'Manutencao': '#8b5cf6',
+                    'Pessoa': '#10b981',
+                    'Animais': '#f97316'
+                };
+                
+                const circle = new Konva.Circle({
+                    radius: 25,
+                    fill: colors[iconType] || '#6b7280',
+                    stroke: '#ffffff',
+                    strokeWidth: 2
+                });
+                group.add(circle);
+                
+                // Adiciona texto com o tipo do ícone
+                const text = new Konva.Text({
+                    text: iconType.substring(0, 3).toUpperCase(),
+                    fontSize: 12,
+                    fontFamily: 'Arial, sans-serif',
+                    fill: 'white',
+                    width: 50,
+                    height: 50,
+                    align: 'center',
+                    verticalAlign: 'middle',
+                    x: -25,
+                    y: -6
+                });
+                group.add(text);
+                
+                layer.add(group);
+                
+                group.on('dragend', () => {
+                    checkPerimeter(group);
+                });
+                
+                group.on('dragmove', () => checkPerimeter(group));
+                
+                group.on('contextmenu', (e) => {
+                    e.evt.preventDefault();
+                    currentIconTarget = group;
+
+                    contextMenu.style.left = `${e.evt.clientX + 5}px`;
+                    contextMenu.style.top = `${e.evt.clientY + 5}px`;
+                    contextMenu.style.display = 'block';
+                });
+                
+                group.on('dblclick', () => {
+                    currentIconTarget = group;
+                    handleRemove();
+                });
+                
+                checkPerimeter(group);
+            }
+            
+            function formatTime(milliseconds) {
+                if (isNaN(milliseconds) || milliseconds < 0) return '00:00';
+                const totalSeconds = Math.floor(milliseconds / 1000);
+                const minutes = Math.floor(totalSeconds / 60);
+                return `${String(minutes).padStart(2, '0')}:${String(totalSeconds % 60).padStart(2, '0')}`;
+            }
+
+            function checkPerimeter(group) {
+                if (!runwayPerimeter) return;
+                
+                const iconRect = group.getClientRect({ relativeTo: layer });
+                const perimeterRect = runwayPerimeter.getClientRect({ relativeTo: layer });
+                const isInside = Konva.Util.haveIntersection(iconRect, perimeterRect);
+                const iconType = group.getAttr('iconType');
+
+                if (isInside && !group.attrs.isCurrentlyInside) {
+                    // Verifica se há outros ícones do mesmo tipo na pista
+                    const iconsOfSameType = getIconsOfTypeInPerimeter(iconType);
+                    let logMessage = `${new Date().toLocaleString('pt-BR')}: ${iconType}`;
+                    
+                    if (iconsOfSameType.length > 0) {
+                        logMessage += ` ${iconsOfSameType.length + 1}`;
+                    }
+                    
+                    logMessage += ' ENTROU na pista.';
+                    addLogEntry(logMessage);
+                    
+                    group.setAttr('isCurrentlyInside', true);
+                    group.setAttr('startTime', new Date());
+
+                    const timerText = new Konva.Text({
+                        text: '00:00',
+                        fontSize: 14,
+                        fontFamily: 'Arial, sans-serif',
+                        fill: 'white',
+                        background: 'rgba(0,0,0,0.8)',
+                        padding: 6,
+                        cornerRadius: 6,
+                        y: -45,
+                        x: -20,
+                        name: 'timer-text',
+                    });
+                    group.add(timerText);
+
+                    const timerId = setInterval(() => {
+                        timerText.text(formatTime(new Date() - group.getAttr('startTime')));
+                        if (group.getLayer()) {
+                            group.getLayer().batchDraw();
+                        }
+                    }, 1000);
+                    group.setAttr('timerId', timerId);
+                    
+                    // Atualiza numeração
+                    updateIconNumbering(iconType);
+                    updateAlarmStatus();
+
+                } else if (!isInside && group.attrs.isCurrentlyInside) {
+                    const startTime = group.getAttr('startTime');
+                    const duration = startTime ? formatTime(new Date() - startTime) : '00:00';
+                    
+                    // Obtém o número do ícone antes de sair
+                    const numberText = group.findOne('.number-text');
+                    const iconNumber = numberText ? numberText.text() : '';
+                    
+                    let logMessage = `${new Date().toLocaleString('pt-BR')}: ${iconType}`;
+                    if (iconNumber) {
+                        logMessage += ` ${iconNumber}`;
+                    }
+                    logMessage += ` SAIU da pista. Tempo: ${duration}`;
+                    addLogEntry(logMessage);
+                    
+                    group.setAttr('isCurrentlyInside', false);
+                    group.setAttr('startTime', null);
+
+                    const timerText = group.findOne('.timer-text');
+                    if (timerText) timerText.destroy();
+
+                    const timerId = group.getAttr('timerId');
+                    if (timerId) {
+                        clearInterval(timerId);
+                        group.setAttr('timerId', null);
+                    }
+                    
+                    // Atualiza numeração após saída
+                    updateIconNumbering(iconType);
+                    updateAlarmStatus();
+                }
+                
+                layer.batchDraw();
+            }
+
+            // Initialize everything
+            initRunwayCanvas();
+        });
+    </script>
+</body>
+</html>
+
