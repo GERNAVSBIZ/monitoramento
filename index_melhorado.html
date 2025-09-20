@@ -1331,6 +1331,7 @@
                 const isInside = Konva.Util.haveIntersection(iconRect, perimeterRect);
                 const iconType = group.findOne('Image').name();
 
+                let stateChanged = false;
                 if (isInside && !group.attrs.isCurrentlyInside) {
                     addLogEntry(`${new Date().toLocaleString('pt-BR')}: ${iconType} ENTROU na pista.`);
                     group.setAttr('isCurrentlyInside', true);
@@ -1357,7 +1358,7 @@
                         }
                     }, 1000);
                     group.setAttr('timerId', timerId);
-                    updateAlarmStatus();
+                    stateChanged = true;
 
                 } else if (!isInside && group.attrs.isCurrentlyInside) {
                     addLogEntry(`${new Date().toLocaleString('pt-BR')}: ${iconType} SAIU da pista.`);
@@ -1372,9 +1373,84 @@
                         timerTextNode.destroy();
                     }
                     group.setAttr('startTime', null);
+                    stateChanged = true;
+                }
+
+                if (stateChanged) {
                     updateAlarmStatus();
                 }
             }
+            
+            // NOVA FUNÇÃO: Atualiza a numeração dos ícones na pista
+            function updateIconNumbers() {
+                // 1. Limpa todos os números existentes para garantir um novo cálculo
+                layer.find('.number-badge-group').forEach(badge => badge.destroy());
+
+                // 2. Agrupa os ícones que estão atualmente dentro do perímetro por tipo
+                const iconsInsideByType = {};
+                layer.find('Group').forEach(group => {
+                    // Verifica se o grupo está marcado como dentro da área da pista
+                    if (group.attrs.isCurrentlyInside) {
+                        const type = group.findOne('Image')?.name();
+                        if (type) {
+                            if (!iconsInsideByType[type]) {
+                                iconsInsideByType[type] = [];
+                            }
+                            iconsInsideByType[type].push(group);
+                        }
+                    }
+                });
+
+                // 3. Itera sobre os ícones agrupados e adiciona os números se houver mais de um de um tipo
+                for (const type in iconsInsideByType) {
+                    const groups = iconsInsideByType[type];
+                    if (groups.length > 1) {
+                        // Ordena os grupos pela posição Y para fornecer uma ordem de numeração consistente
+                        groups.sort((a, b) => a.y() - b.y());
+                        
+                        groups.forEach((group, index) => {
+                            const number = index + 1;
+
+                            // Cria um novo grupo para o "badge" para facilitar o posicionamento e a remoção
+                            const badgeGroup = new Konva.Group({
+                                x: group.findOne('Image').width() - 12, // Posição no canto superior direito do ícone
+                                y: -12,
+                                name: 'number-badge-group', // Nome para fácil seleção posterior
+                            });
+
+                            // O círculo de fundo do "badge"
+                            const badgeCircle = new Konva.Rect({
+                                width: 24,
+                                height: 24,
+                                fill: '#ef4444', // Uma cor vermelha forte para visibilidade
+                                cornerRadius: 12,
+                                stroke: 'white',
+                                strokeWidth: 2,
+                                shadowColor: 'black',
+                                shadowBlur: 5,
+                                shadowOpacity: 0.5,
+                            });
+
+                            // O texto do número em si
+                            const numberText = new Konva.Text({
+                                text: String(number),
+                                fontSize: 14,
+                                fontFamily: 'Inter, sans-serif',
+                                fill: 'white',
+                                width: 24,
+                                height: 24,
+                                align: 'center',
+                                verticalAlign: 'middle',
+                                fontStyle: 'bold',
+                            });
+
+                            badgeGroup.add(badgeCircle, numberText);
+                            group.add(badgeGroup);
+                        });
+                    }
+                }
+            }
+
 
             function updateAlarmStatus() {
                 const isOccupied = layer.find('Group').some(group => group.attrs.isCurrentlyInside);
@@ -1395,6 +1471,10 @@
                     alarmLightIcon.visible(isOccupied);
                     isOccupied ? alarmLightTween?.play() : alarmLightTween?.pause();
                 }
+                
+                // ATUALIZADO: Chama a função para atualizar a numeração sempre que o status do alarme mudar
+                updateIconNumbers();
+
                 layer.batchDraw();
             }
 
@@ -1704,4 +1784,3 @@
     </script>
 </body>
 </html>
-
