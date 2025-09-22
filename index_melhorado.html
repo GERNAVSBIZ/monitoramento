@@ -836,6 +836,11 @@
                         Log de Eventos
                     </h2>
                     <div class="header-actions">
+                         <button id="twyc-log-btn" class="action-button secondary" title="Registrar entrada/saída rápida na TWY C">
+                            <i class="fas fa-road-circle-check"></i> 
+                            <span>TWY C:</span>
+                            <span id="twyc-counter" class="ml-1 font-bold">0</span>
+                        </button>
                         <button id="generateReportButton" class="action-button primary">
                             <i class="fas fa-chart-pie"></i> 
                             Gerar Relatório
@@ -1724,10 +1729,7 @@
                 settings.perimeterHeight = parseInt(document.getElementById('perimeterHeightInput').value);
                 
                 saveSettings();
-                updateUIFromSettings();
-                initRunwayCanvas();
-                startPollingMetar();
-                settingsModal.classList.remove('visible');
+                location.reload();
             });
 
             const generateReportButton = document.getElementById('generateReportButton');
@@ -1767,8 +1769,29 @@
                 initRunwayCanvas();
             });
 
+            // Funcionalidade do contador TWY C
+            const twycLogBtn = document.getElementById('twyc-log-btn');
+            const twycCounterSpan = document.getElementById('twyc-counter');
+            let twycCounter = 0;
+
+            function loadTwycCounter() {
+                const savedCount = localStorage.getItem('twycCounter');
+                twycCounter = savedCount ? parseInt(savedCount, 10) : 0;
+                twycCounterSpan.textContent = twycCounter;
+            }
+
+            twycLogBtn.addEventListener('click', () => {
+                twycCounter++;
+                twycCounterSpan.textContent = twycCounter;
+                localStorage.setItem('twycCounter', twycCounter);
+                
+                const now = new Date().toLocaleString('pt-BR');
+                addLogEntry(`${now}: TWYC - Entrada/Saída registrada.`);
+            });
+
             // Initialize everything
             loadSettings();
+            loadTwycCounter();
             initRunwayCanvas();
             createAlarmLight();
             observationsTextarea.value = localStorage.getItem('observationsText') || '';
