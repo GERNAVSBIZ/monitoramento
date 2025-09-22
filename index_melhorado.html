@@ -1175,7 +1175,7 @@
                     const group = currentIconTarget.getParent();
                     const image = group.findOne('Image');
                     const textNode = group.findOne('.annotation-text');
-                    addDraggableIcon(image.attrs.imageUrl, image.name(), group.x() + 20, group.y() + 20, textNode ? textNode.text() : '');
+                    addDraggableIcon(image.attrs.imageUrl, image.name(), group.x() + 30, group.y() + 30, textNode ? textNode.text() : '');
                     addLogEntry(`${new Date().toLocaleString('pt-BR')}: ${image.name()} duplicado.`);
                     saveIconsState();
                 }
