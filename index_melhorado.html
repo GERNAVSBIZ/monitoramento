@@ -737,6 +737,14 @@
     </style>
 </head>
 <body>
+    <div id="audio-activation-overlay" class="modal-overlay visible">
+        <div class="modal-content text-center">
+            <h3 class="text-2xl font-bold mb-4 text-white">Ativação de Áudio Necessária</h3>
+            <p class="text-lg text-gray-300">Por favor, clique em qualquer lugar da tela para habilitar as notificações sonoras do sistema.</p>
+            <i class="fas fa-volume-up fa-3x mt-6 text-blue-500 animate-pulse"></i>
+        </div>
+    </div>
+
     <div class="main-container">
         <div class="header-container">
             <h1 class="header-title">
@@ -957,8 +965,32 @@
     </audio>
 
     <script>
-        // Todas as funcionalidades JavaScript originais mantidas
         document.addEventListener('DOMContentLoaded', function() {
+            // Lógica de ativação de áudio
+            const audioActivationOverlay = document.getElementById('audio-activation-overlay');
+            const metarAlarmSound = document.getElementById('metar-alarm-sound');
+
+            function handleAudioActivation() {
+                const playPromise = metarAlarmSound.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(_ => {
+                        metarAlarmSound.pause();
+                        metarAlarmSound.currentTime = 0;
+                        console.log("Ativação de áudio bem-sucedida.");
+                    }).catch(error => {
+                        console.warn("O usuário precisa interagir com a página para ativar o áudio.", error);
+                    });
+                }
+                audioActivationOverlay.classList.remove('visible');
+                window.removeEventListener('click', handleAudioActivation);
+                window.removeEventListener('touchend', handleAudioActivation);
+            }
+
+            if (audioActivationOverlay) {
+                window.addEventListener('click', handleAudioActivation, { once: true });
+                window.addEventListener('touchend', handleAudioActivation, { once: true });
+            }
+
             const stage = new Konva.Stage({
                 container: 'konva-container',
                 width: document.getElementById('konva-container').offsetWidth,
@@ -978,8 +1010,8 @@
             const settings = {
                 darkMode: false,
                 pollInterval: 30000,
-                icaoCode: 'SBIZ', // Adicionado o código ICAO padrão
-                soundAlarm: true, // Adicionado a opção de som do alarme
+                icaoCode: 'SBIZ',
+                soundAlarm: true,
                 perimeterX: 10,
                 perimeterY: 20,
                 perimeterWidth: 80,
@@ -1066,7 +1098,6 @@
             function initRunwayCanvas() {
                 layer.destroyChildren();
                 
-                // Primeiro, criamos o retângulo da área de segurança
                 runwayPerimeter = new Konva.Rect({
                     x: stage.width() * (settings.perimeterX / 100),
                     y: stage.height() * (settings.perimeterY / 100),
@@ -1088,13 +1119,12 @@
                     iterations: Konva.Tween.INFINITE
                 });
                 
-                // Depois, carregamos a imagem da pista por cima
                 try {
                     const imgElement = new Image();
                     imgElement.onload = () => {
                         const aspectRatio = imgElement.width / imgElement.height;
-                        const maxWidth = stage.width() * 1.5; //largura da pista
-                        const maxHeight = stage.height() * 1.4; // altura da imagem da pista
+                        const maxWidth = stage.width() * 1.3 
+                        const maxHeight = stage.height() * 1.2;
                         
                         let finalWidth, finalHeight;
                         if (maxWidth / aspectRatio <= maxHeight) {
@@ -1113,7 +1143,6 @@
                             height: finalHeight
                         });
                         layer.add(image);
-                        // A imagem é adicionada depois do retângulo, então ficará por cima
                         
                         layer.batchDraw();
                         loadIconsState();
@@ -1148,7 +1177,6 @@
                     });
                     layer.batchDraw();
                 };
-                // img.src = 'luz_vermelha.png'; // Removido conforme solicitação do usuário
             }
 
             const contextMenu = document.getElementById('context-menu');
@@ -1388,15 +1416,11 @@
                 }
             }
             
-            // NOVA FUNÇÃO: Atualiza a numeração dos ícones na pista
             function updateIconNumbers() {
-                // 1. Limpa todos os números existentes para garantir um novo cálculo
                 layer.find('.number-badge-group').forEach(badge => badge.destroy());
 
-                // 2. Agrupa os ícones que estão atualmente dentro do perímetro por tipo
                 const iconsInsideByType = {};
                 layer.find('Group').forEach(group => {
-                    // Verifica se o grupo está marcado como dentro da área da pista
                     if (group.attrs.isCurrentlyInside) {
                         const type = group.findOne('Image')?.name();
                         if (type) {
@@ -1408,28 +1432,24 @@
                     }
                 });
 
-                // 3. Itera sobre os ícones agrupados e adiciona os números se houver mais de um de um tipo
                 for (const type in iconsInsideByType) {
                     const groups = iconsInsideByType[type];
                     if (groups.length > 1) {
-                        // Ordena os grupos pelo tempo de entrada para numeração sequencial correta
                         groups.sort((a, b) => a.getAttr('startTime') - b.getAttr('startTime'));
                         
                         groups.forEach((group, index) => {
                             const number = index + 1;
 
-                            // Cria um novo grupo para o "badge" para facilitar o posicionamento e a remoção
                             const badgeGroup = new Konva.Group({
-                                x: group.findOne('Image').width() - 12, // Posição no canto superior direito do ícone
+                                x: group.findOne('Image').width() - 12,
                                 y: -12,
-                                name: 'number-badge-group', // Nome para fácil seleção posterior
+                                name: 'number-badge-group',
                             });
 
-                            // O círculo de fundo do "badge"
                             const badgeCircle = new Konva.Rect({
                                 width: 24,
                                 height: 24,
-                                fill: '#ef4444', // Uma cor vermelha forte para visibilidade
+                                fill: '#ef4444',
                                 cornerRadius: 12,
                                 stroke: 'white',
                                 strokeWidth: 2,
@@ -1438,7 +1458,6 @@
                                 shadowOpacity: 0.5,
                             });
 
-                            // O texto do número em si
                             const numberText = new Konva.Text({
                                 text: String(number),
                                 fontSize: 14,
@@ -1479,13 +1498,10 @@
                     isOccupied ? alarmLightTween?.play() : alarmLightTween?.pause();
                 }
                 
-                // ATUALIZADO: Chama a função para atualizar a numeração sempre que o status do alarme mudar
                 updateIconNumbers();
-
                 layer.batchDraw();
             }
 
-            // Event listeners para ícones da paleta
             document.querySelectorAll('.icon-palette .icon-item').forEach(item => {
                 item.addEventListener('click', () => {
                     addDraggableIcon(item.dataset.imageUrl, item.dataset.iconType);
@@ -1496,7 +1512,6 @@
 
             // METAR functionality
             const silenceAlarmButton = document.getElementById('silence-alarm-button');
-            const metarAlarmSound = document.getElementById('metar-alarm-sound');
             let pollingIntervalIdMetar, isAlarmPlayingMetar = false, metarTextKonva;
             const API_KEY = "ttMZrBTp4mD0xMkYAVxKMzyu7B9KL1nfCS6T1fMR";
 
@@ -1550,7 +1565,6 @@
                 pollingIntervalIdMetar = setInterval(fetchMetarSpeci, settings.pollInterval);
             }
             
-            // ATUALIZADO: Esconde o alarme e gerencia o estado para o período noturno.
             function hideMetarAlarm(isManualSilence = false) {
                 silenceAlarmButton.style.display = 'none';
                 metarDisplayKonvaContainer.classList.remove('metar-alert');
@@ -1565,56 +1579,46 @@
                     const currentUTCHour = now.getUTCHours();
                     const currentUTCMinutes = now.getUTCMinutes();
                     
-                    // NOVO Período Silencioso: Entre 21:00 UTC e 03:15 UTC.
                     const isQuietHours = (currentUTCHour >= 21) || (currentUTCHour < 3) || (currentUTCHour === 3 && currentUTCMinutes <= 15);
 
                     if (isQuietHours) {
-                        // Garante que o estado da hora seja atualizado
                         if (currentUTCHour !== alarmState.lastCheckedUTCHour) {
                             alarmState.lastCheckedUTCHour = currentUTCHour;
                         }
-                        // Marca que o alarme para esta hora foi silenciado
                         alarmState.hasAlarmedThisHour = true;
                     }
                 }
             }
 
-            // ATUALIZADO: Mostra o alarme visual e decide se toca o som com base no horário UTC.
             function showMetarAlarm() {
                 const now = new Date();
                 const currentUTCHour = now.getUTCHours();
                 const currentUTCMinutes = now.getUTCMinutes();
 
-                // Reseta o estado do alarme se a hora UTC mudou.
                 if (currentUTCHour !== alarmState.lastCheckedUTCHour) {
                     alarmState.lastCheckedUTCHour = currentUTCHour;
                     alarmState.hasAlarmedThisHour = false;
                 }
 
-                // NOVO Período Silencioso: Entre 21:00 UTC e 03:15 UTC.
                 const isQuietHours = (currentUTCHour >= 21) || (currentUTCHour < 3) || (currentUTCHour === 3 && currentUTCMinutes <= 15);
 
                 let shouldPlaySound = true;
-                const shouldLoopSound = !isQuietHours; // O som só repete fora do período "silencioso".
+                const shouldLoopSound = !isQuietHours;
 
                 if (isQuietHours) {
                     if (alarmState.hasAlarmedThisHour) {
-                        // Se o alarme já foi acionado ou silenciado nesta hora, não toca o som de novo.
                         shouldPlaySound = false;
                     }
                 }
 
-                // O alerta visual sempre aparece.
                 silenceAlarmButton.style.display = 'flex';
                 metarDisplayKonvaContainer.classList.add('metar-alert');
 
-                // Toca o alarme sonoro apenas se permitido e se já não estiver tocando.
                 if (shouldPlaySound && settings.soundAlarm && !isAlarmPlayingMetar) {
                     metarAlarmSound.loop = shouldLoopSound;
                     metarAlarmSound.play().catch(e => console.error("Falha ao tocar áudio.", e));
                     isAlarmPlayingMetar = true;
                     
-                    // Se o alarme tocou durante o período noturno, marca para não repetir na mesma hora.
                     if (isQuietHours) {
                         alarmState.hasAlarmedThisHour = true;
                     }
@@ -1634,7 +1638,6 @@
             }
 
             async function fetchMetarSpeci() {
-                console.log("Iniciando fetchMetarSpeci...");
                 if (!settings.icaoCode) {
                     updateMetarDisplay('Insira um código ICAO.');
                     return;
@@ -1648,9 +1651,7 @@
                 let triggerAlarm = false;
 
                 try {
-                    console.log('Fetching METAR from URL:', url);
                     const response = await fetch(url, { cache: 'no-store' });
-                    console.log('METAR API Response:', response);
                     if (!response.ok) throw new Error(`Erro ${response.status}`);
                     const data = await response.json();
                     const messages = data?.data?.data;
@@ -1666,11 +1667,7 @@
                         const msgTimeMatch = latestMessage.match(/\s\d{2}(\d{2})\d{2}Z/);
                         const msgHour = msgTimeMatch ? parseInt(msgTimeMatch[1], 10) : -1;
                         
-                        // REGRA: METAR da Hora Anterior
-                        // Aciona o alarme se a hora da mensagem for diferente da hora atual E já passou 1 minuto.
                         if (msgHour !== nowUTCHour && nowUTCMinute > 1) {
-                            // EXCEÇÃO: Estamos no período de espera do SPECI das 03:15 (entre 03:02 e 03:15 UTC).
-                            // Se o último METAR é da hora 2, não acione o alarme ainda.
                             if (nowUTCHour === 3 && nowUTCMinute <= 15 && msgHour === 2) {
                                 triggerAlarm = false;
                             } else {
@@ -1679,17 +1676,14 @@
                         }
 
                     } else {
-                        // REGRA: Nenhum METAR Encontrado
                         updateMetarDisplay('Nenhum METAR encontrado.');
                         if (nowUTCMinute > 1) {
-                             // EXCEÇÃO: Não aciona alarme de ausência se estivermos esperando o SPECI das 03:15.
                             if (!(nowUTCHour === 3 && nowUTCMinute <= 15)) {
                                 triggerAlarm = true;
                             }
                         }
                     }
                 } catch (error) {
-                    // REGRA: Falha na Comunicação com a API
                     updateMetarDisplay(`Falha na busca: ${error.message}`);
                     if (new Date().getUTCMinutes() > 1) {
                         triggerAlarm = true;
@@ -1705,7 +1699,6 @@
 
             silenceAlarmButton.addEventListener('click', () => hideMetarAlarm(true));
 
-            // Settings modal
             const settingsButton = document.getElementById('settings-button');
             const settingsModal = document.getElementById('settings-modal');
             const saveSettingsBtn = document.getElementById('save-settings-btn');
@@ -1737,7 +1730,6 @@
                 settingsModal.classList.remove('visible');
             });
 
-            // Report modal
             const generateReportButton = document.getElementById('generateReportButton');
             const reportModal = document.getElementById('report-modal');
             const closeReportBtn = document.getElementById('close-report-btn');
@@ -1752,11 +1744,9 @@
             });
 
             function generateReport() {
-                // Implementação básica do relatório
                 console.log('Gerando relatório...');
             }
 
-            // Close modals on outside click
             window.addEventListener('click', (e) => {
                 if (e.target === settingsModal) {
                     settingsModal.classList.remove('visible');
@@ -1766,12 +1756,10 @@
                 }
             });
 
-            // Save observations
             observationsTextarea.addEventListener('input', () => {
                 localStorage.setItem('observationsText', observationsTextarea.value);
             });
 
-            // Window resize handler
             window.addEventListener('resize', () => {
                 const container = document.getElementById('konva-container');
                 stage.width(container.offsetWidth);
