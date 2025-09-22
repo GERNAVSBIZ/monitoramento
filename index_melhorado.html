@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Moni Aeroporto Imperatriz</title>
+    <title>Monitor Aeroporto Imperatriz</title>
     <script src="https://unpkg.com/konva@9.3.0/konva.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -1175,7 +1175,7 @@
                     const group = currentIconTarget.getParent();
                     const image = group.findOne('Image');
                     const textNode = group.findOne('.annotation-text');
-                    addDraggableIcon(image.attrs.imageUrl, image.name(), group.x() + 30, group.y() + 30, textNode ? textNode.text() : '');
+                    addDraggableIcon(image.attrs.imageUrl, image.name(), group.x() + 20, group.y() + 20, textNode ? textNode.text() : '');
                     addLogEntry(`${new Date().toLocaleString('pt-BR')}: ${image.name()} duplicado.`);
                     saveIconsState();
                 }
@@ -1412,8 +1412,8 @@
                 for (const type in iconsInsideByType) {
                     const groups = iconsInsideByType[type];
                     if (groups.length > 1) {
-                        // Ordena os grupos pela posição Y para fornecer uma ordem de numeração consistente
-                        groups.sort((a, b) => a.y() - b.y());
+                        // Ordena os grupos pelo tempo de entrada para numeração sequencial correta
+                        groups.sort((a, b) => a.getAttr('startTime') - b.getAttr('startTime'));
                         
                         groups.forEach((group, index) => {
                             const number = index + 1;
@@ -1791,3 +1791,4 @@
     </script>
 </body>
 </html>
+
