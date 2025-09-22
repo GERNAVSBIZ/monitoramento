@@ -1093,8 +1093,8 @@
                     const imgElement = new Image();
                     imgElement.onload = () => {
                         const aspectRatio = imgElement.width / imgElement.height;
-                        const maxWidth = stage.width() * 1.0; //largura da pista
-                        const maxHeight = stage.height() * 0.9; // altura da imagem da pista
+                        const maxWidth = stage.width() * 1.5; //largura da pista
+                        const maxHeight = stage.height() * 1.4; // altura da imagem da pista
                         
                         let finalWidth, finalHeight;
                         if (maxWidth / aspectRatio <= maxHeight) {
