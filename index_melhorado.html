@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monitor Aeroporto Imperatriz</title>
-    <script src="[https://unpkg.com/konva@9.3.0/konva.min.js](https://unpkg.com/konva@9.3.0/konva.min.js)"></script>
-    <link rel="stylesheet" href="[https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css](https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css)">
-    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
-    <script src="[https://cdn.jsdelivr.net/npm/chart.js](https://cdn.jsdelivr.net/npm/chart.js)"></script>
-    <link href="[https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap](https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap)" rel="stylesheet">
+    <script src="https://unpkg.com/konva@9.3.0/konva.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg-primary: #0f172a;
@@ -773,30 +773,37 @@
                 </div>
                 
                 <div class="icon-palette">
-                    <div class="icon-item" data-icon-type="Pessoal Obra" data-image-url="obra_text.png">
-                        <img src="obra_text.png" alt="Cone">
+                    <div class="icon-item" data-icon-type="AERONAVE" data-image-url="AERONAVE.png">
+                        <img src="AERONAVE.png" alt="Cone">
                     </div>
-                    <div class="icon-item" data-icon-type="Ambulancia" data-image-url="ambulancia_text.png">
-                        <img src="ambulancia_text.png" alt="Ambulancia">
+                    <div class="icon-item" data-icon-type="ELETRICA" data-image-url="ELETRICA.png">
+                        <img src="ELETRICA.png" alt="ELETRICA">
                     </div>
-                    <div class="icon-item" data-icon-type="SCI" data-image-url="faisca_text.png">
-                        <img src="faisca_text.png" alt="Faisca">
+                    <div class="icon-item" data-icon-type="FAISCA1" data-image-url="FAISCA1.png">
+                        <img src="FAISCA1.png" alt="FAISCA1">
                     </div>
-                    <div class="icon-item" data-icon-type="Avião" data-image-url="aviao_text.png">
-                        <img src="aviao_text.png" alt="Avião">
+                    <div class="icon-item" data-icon-type="FAISCA2" data-image-url="FAISCA2.png">
+                        <img src="FAISCA2.png" alt="FAISCA2">
                     </div>
-                    <div class="icon-item" data-icon-type="Manutenção" data-image-url="tratorista_text.png">
-                        <img src="tratorista_text.png" alt="Ferramentas">
+                    <div class="icon-item" data-icon-type="FAISCA3" data-image-url="FAISCA3.png">
+                        <img src="FAISCA3.png" alt="FAISCA3">
                     </div>
-                    <div class="icon-item" data-icon-type="Viatura" data-image-url="apoc_text.png">
-                        <img src="apoc_text.png" alt="Viatura">
+                    <div class="icon-item" data-icon-type="MANUTENCAO1" data-image-url="MNT1.png">
+                        <img src="MNT1.png" alt="MANUTENCAO1">
                     </div>
-                    <div class="icon-item" data-icon-type="Pessoa" data-image-url="fiscal_text.png">
-                        <img src="fiscal_text.png" alt="Pessoa">
+                     <div class="icon-item" data-icon-type="MANUTENÇÃO2" data-image-url="MNT2.png">
+                        <img src="MNT2.png" alt="MANUTENCAO2">
                     </div>
-                    <div class="icon-item" data-icon-type="Animais" data-image-url="animais_text.png">
-                        <img src="animais_text.png" alt="Animais">
+                    <div class="icon-item" data-icon-type="PCM" data-image-url="PCM.png">
+                        <img src="PCM.png" alt="PCM">
                     </div>
+                    <div class="icon-item" data-icon-type="VM1" data-image-url="VM1.png">
+                        <img src="VM1.png" alt="VM1">
+                    </div>
+                    <div class="icon-item" data-icon-type="VO1" data-image-url="VO1.png">
+                        <img src="VO1.png" alt="VO1">
+                    </div>
+                    
                 </div>
                 
                 <div id="alarm-display" class="status-display">
@@ -1067,7 +1074,7 @@
                 logList.prepend(li);
                 setTimeout(() => li.classList.remove('new-entry'), 500);
 
-                const SCRIPT_URL = "[https://script.google.com/macros/s/AKfycbzX0NsWNtFM2EfPgc2zYpWeoByt3xgjyyGsDLeB9Brt11HAULCzfCe95_ORPlHWATO2xQ/exec](https://script.google.com/macros/s/AKfycbzX0NsWNtFM2EfPgc2zYpWeoByt3xgjyyGsDLeB9Brt11HAULCzfCe95_ORPlHWATO2xQ/exec)";
+                const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzX0NsWNtFM2EfPgc2zYpWeoByt3xgjyyGsDLeB9Brt11HAULCzfCe95_ORPlHWATO2xQ/exec";
 
                 fetch(SCRIPT_URL, {
                     method: 'POST',
@@ -1116,8 +1123,8 @@
                     const imgElement = new Image();
                     imgElement.onload = () => {
                         const aspectRatio = imgElement.width / imgElement.height;
-                        const maxWidth = stage.width() * 1.0; 
-                        const maxHeight = stage.height() * 1.0;
+                        const maxWidth = stage.width() * 1.3 
+                        const maxHeight = stage.height() * 1.2;
                         
                         let finalWidth, finalHeight;
                         if (maxWidth / aspectRatio <= maxHeight) {
@@ -1287,8 +1294,8 @@
                 imgElement.onload = () => {
                     const image = new Konva.Image({
                         image: imgElement,
-                        width: 70,
-                        height: 70,
+                        width: 75,
+                        height: 75,
                         name: type,
                         shadowColor: 'rgba(0,0,0,0.3)',
                         shadowBlur: 8,
@@ -1707,7 +1714,6 @@
             });
 
             saveSettingsBtn.addEventListener('click', () => {
-                // Primeiro, lê os novos valores do formulário
                 settings.darkMode = document.getElementById('darkModeToggle').checked;
                 settings.icaoCode = document.getElementById("icaoCodeInput").value.toUpperCase();
                 settings.pollInterval = parseInt(document.getElementById("pollIntervalInput").value);
@@ -1717,11 +1723,11 @@
                 settings.perimeterWidth = parseInt(document.getElementById('perimeterWidthInput').value);
                 settings.perimeterHeight = parseInt(document.getElementById('perimeterHeightInput').value);
                 
-                // Salva as novas configurações no armazenamento local
                 saveSettings();
-
-                // Recarrega a página para aplicar todas as alterações do zero
-                location.reload();
+                updateUIFromSettings();
+                initRunwayCanvas();
+                startPollingMetar();
+                settingsModal.classList.remove('visible');
             });
 
             const generateReportButton = document.getElementById('generateReportButton');
