@@ -263,6 +263,14 @@
             animation: pulse-danger 2s infinite;
         }
 
+        /* Novo estilo para pista fechada */
+        .status-display.closed {
+             background: linear-gradient(135deg, var(--accent-warning), #d97706);
+             color: white;
+             /* Removido animation: pulse-warning 1s infinite; para não piscar constantemente */
+        }
+
+
         @keyframes pulse-danger {
             0%, 100% { transform: scale(1); }
             50% { transform: scale(1.02); }
@@ -291,6 +299,25 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.8; }
         }
+
+        /* Nova barra de status para fechamento */
+        .closure-status-bar {
+            display: none; /* Começa escondida */
+            padding: 12px 20px;
+            border-radius: var(--border-radius);
+            text-align: center;
+            font-weight: 600;
+            font-size: 1rem;
+            margin-bottom: 24px;
+            background: linear-gradient(135deg, var(--accent-warning), #d97706);
+            color: white;
+            box-shadow: var(--shadow-md);
+        }
+
+        .closure-status-bar.visible {
+            display: block; /* Mostra quando ativa */
+        }
+
 
         .runway-canvas {
             border: 2px solid var(--card-border);
@@ -550,6 +577,39 @@
             transition: var(--transition);
         }
 
+         /* Estilo para checkboxes de dias da semana */
+        .day-checkboxes {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .day-checkboxes label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            padding: 8px 12px;
+            border: 1px solid var(--card-border);
+            border-radius: var(--border-radius);
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            font-weight: 400; /* Peso normal para não parecer um label principal */
+            margin-bottom: 0; /* Remover margem padrão */
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .day-checkboxes input[type="checkbox"] {
+           width: auto; /* Restaurar largura automática */
+           margin-right: 5px;
+        }
+       .day-checkboxes input[type="checkbox"]:checked + span {
+           color: var(--text-primary); /* Mudar cor do texto quando selecionado */
+        }
+       .day-checkboxes label:has(input:checked) { /* Estilizar label quando checkbox está marcado */
+            background-color: var(--accent-primary);
+            color: white;
+            border-color: var(--accent-primary);
+        }
+
         .form-group input:focus,
         .form-group select:focus,
         .form-group textarea:focus {
@@ -806,6 +866,12 @@
                     
                 </div>
                 
+                 <!-- Barra de Status de Fechamento -->
+                <div id="closure-status-bar" class="closure-status-bar">
+                    <i class="fas fa-lock mr-2"></i>
+                    <span>Pista Fechada - Motivo: <strong id="closure-reason"></strong> | NOTAM: <strong id="closure-notam"></strong> (<span id="closure-time"></span>)</span>
+                </div>
+
                 <div id="alarm-display" class="status-display">
                     <i class="fas fa-check-circle"></i>
                     Pista Livre
@@ -928,6 +994,52 @@
                 <label for="perimeterHeightInput">Altura do Perímetro (%)</label>
                 <input type="number" id="perimeterHeightInput" min="0" max="100" step="1" value="60">
             </div>
+
+            <hr class="border-t border-gray-600 my-6">
+
+             <h3>Fechamento Programado da Pista</h3>
+
+             <div class="form-group">
+                <label for="closureEnabledToggle">Ativar Fechamento Programado</label>
+                <label class="switch">
+                    <input type="checkbox" id="closureEnabledToggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div class="form-group">
+                <label>Dias da Semana</label>
+                <div class="day-checkboxes" id="closureDaysCheckboxes">
+                    <label><input type="checkbox" value="1"><span>Seg</span></label>
+                    <label><input type="checkbox" value="2"><span>Ter</span></label>
+                    <label><input type="checkbox" value="3"><span>Qua</span></label>
+                    <label><input type="checkbox" value="4"><span>Qui</span></label>
+                    <label><input type="checkbox" value="5"><span>Sex</span></label>
+                    <label><input type="checkbox" value="6"><span>Sáb</span></label>
+                    <label><input type="checkbox" value="0"><span>Dom</span></label>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div class="form-group">
+                    <label for="closureStartTimeInput">Horário Início</label>
+                    <input type="time" id="closureStartTimeInput">
+                </div>
+                <div class="form-group">
+                    <label for="closureEndTimeInput">Horário Fim</label>
+                    <input type="time" id="closureEndTimeInput">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="closureReasonInput">Motivo</label>
+                <input type="text" id="closureReasonInput" placeholder="Ex: Obras na pista">
+            </div>
+
+            <div class="form-group">
+                <label for="closureNotamInput">NOTAM</label>
+                <input type="text" id="closureNotamInput" placeholder="Número do NOTAM (opcional)">
+            </div>
             
             <div class="modal-actions">
                 <button id="cancel-settings-btn" class="action-button secondary">Cancelar</button>
@@ -1004,8 +1116,9 @@
             const observationsTextarea = document.getElementById('observationsTextarea');
             const logList = document.querySelector('#log-area ul');
             const metarDisplayKonvaContainer = document.getElementById('metar-display-konva-container');
+            const closureStatusBar = document.getElementById('closure-status-bar'); // Nova barra
             
-            let runwayPerimeter, alarmLightIcon, alarmLightTween, perimeterAlarmTween;
+            let runwayPerimeter, alarmLightIcon, alarmLightTween, perimeterAlarmTween, closureCheckInterval;
             
             const settings = {
                 darkMode: false,
@@ -1015,15 +1128,26 @@
                 perimeterX: 10,
                 perimeterY: 20,
                 perimeterWidth: 80,
-                perimeterHeight: 60
+                perimeterHeight: 60,
+                 // Novas configurações de fechamento
+                closureEnabled: false,
+                closureDays: [], // Armazenar como números (0=Dom, 1=Seg, ...)
+                closureStartTime: '', // HH:MM
+                closureEndTime: '',   // HH:MM
+                closureReason: '',
+                closureNotam: ''
             };
 
             function loadSettings() {
                 const saved = localStorage.getItem('airportSettings');
                 if (saved) {
-                    Object.assign(settings, JSON.parse(saved));
+                    // Mescla as configurações salvas com as padrões
+                     Object.assign(settings, JSON.parse(saved));
+                     // Garante que closureDays seja sempre um array
+                     settings.closureDays = Array.isArray(settings.closureDays) ? settings.closureDays : [];
                 }
                 updateUIFromSettings();
+                checkRunwayClosure(); // Verifica o status ao carregar
             }
 
             function saveSettings() {
@@ -1040,7 +1164,69 @@
                 document.getElementById("perimeterYInput").value = settings.perimeterY;
                 document.getElementById("perimeterWidthInput").value = settings.perimeterWidth;
                 document.getElementById("perimeterHeightInput").value = settings.perimeterHeight;
+
+                // Atualiza UI das configurações de fechamento
+                document.getElementById("closureEnabledToggle").checked = settings.closureEnabled;
+                document.querySelectorAll('#closureDaysCheckboxes input[type="checkbox"]').forEach(cb => {
+                    cb.checked = settings.closureDays.includes(parseInt(cb.value));
+                });
+                document.getElementById("closureStartTimeInput").value = settings.closureStartTime;
+                document.getElementById("closureEndTimeInput").value = settings.closureEndTime;
+                document.getElementById("closureReasonInput").value = settings.closureReason;
+                document.getElementById("closureNotamInput").value = settings.closureNotam;
+
             }
+
+             // Função para verificar se a pista está fechada AGORA
+            function isRunwayClosedNow() {
+                if (!settings.closureEnabled || !settings.closureStartTime || !settings.closureEndTime || settings.closureDays.length === 0) {
+                    return false; // Não está habilitado, ou falta info, ou nenhum dia selecionado
+                }
+
+                const now = new Date();
+                const currentDay = now.getDay(); // 0 = Dom, 1 = Seg, ...
+                const currentTime = now.getHours() * 60 + now.getMinutes(); // Tempo atual em minutos desde meia-noite
+
+                if (!settings.closureDays.includes(currentDay)) {
+                    return false; // Não é um dia configurado para fechamento
+                }
+
+                const [startH, startM] = settings.closureStartTime.split(':').map(Number);
+                const [endH, endM] = settings.closureEndTime.split(':').map(Number);
+                const startTime = startH * 60 + startM;
+                let endTime = endH * 60 + endM;
+
+                 // Lida com fechamentos que passam da meia-noite (ex: 22:00 - 02:00)
+                 if (endTime < startTime) {
+                     // Se a hora atual for APÓS o início OU ANTES do fim (no dia seguinte virtualmente)
+                     return currentTime >= startTime || currentTime < endTime;
+                 } else {
+                     // Fechamento no mesmo dia
+                     return currentTime >= startTime && currentTime < endTime;
+                 }
+            }
+
+            // Função para atualizar a exibição do status de fechamento
+            function checkRunwayClosure() {
+                 const isClosed = isRunwayClosedNow();
+                 
+                 if (isClosed) {
+                     document.getElementById('closure-reason').textContent = settings.closureReason || 'N/A';
+                     document.getElementById('closure-notam').textContent = settings.closureNotam || 'N/A';
+                     document.getElementById('closure-time').textContent = `${settings.closureStartTime} - ${settings.closureEndTime}`;
+                     closureStatusBar.classList.add('visible');
+                     // Adicional: Mudar status principal se estiver fechado
+                     alarmDisplay.innerHTML = '<i class="fas fa-lock"></i> Pista Fechada (Programado)';
+                     alarmDisplay.classList.add('closed'); // Usa a nova classe CSS
+                     alarmDisplay.classList.remove('active', 'success'); // Remove outras classes de status
+                 } else {
+                     closureStatusBar.classList.remove('visible');
+                     // Se não estiver fechado, permite que updateAlarmStatus controle o display principal
+                      alarmDisplay.classList.remove('closed'); // Remove a classe de fechado
+                     updateAlarmStatus(); // Reavalia o status normal (livre/ocupado)
+                 }
+            }
+
 
             function saveIconsState() {
                 const icons = layer.find('Group').map(group => {
@@ -1217,7 +1403,7 @@
                     }
                     addLogEntry(`${new Date().toLocaleString('pt-BR')}: ${currentIconTarget.name()} removido.`);
                     group.destroy();
-                    updateAlarmStatus();
+                    updateAlarmStatus(); // Chama updateAlarmStatus que agora também chama updateIconNumbers
                     saveIconsState();
                 }
             }
@@ -1284,6 +1470,13 @@
             });
 
             function addDraggableIcon(imageUrl, type, x, y, annotation = '') {
+                 // Verifica se a pista está fechada antes de adicionar
+                 if (isRunwayClosedNow()) {
+                     console.log("Pista fechada. Não é possível adicionar ícones.");
+                     // Opcional: Mostrar uma mensagem para o usuário
+                     return;
+                 }
+
                 const group = new Konva.Group({
                     x: x ?? Math.random() * (stage.width() - 60),
                     y: y ?? Math.random() * (stage.height() - 60),
@@ -1326,7 +1519,23 @@
                         saveIconsState();
                     });
                     
-                    group.on('dragmove', () => checkPerimeter(group));
+                     // Impede o drag se a pista estiver fechada
+                    group.on('dragstart', (e) => {
+                         if (isRunwayClosedNow()) {
+                             e.target.stopDrag();
+                         }
+                     });
+                     
+                     // Re-verifica no dragmove para o caso de fechar enquanto arrasta
+                     group.on('dragmove', (e) => {
+                         if (isRunwayClosedNow()) {
+                             e.target.stopDrag();
+                              // Poderia forçar o ícone a voltar para a posição inicial,
+                              // mas parar o drag já previne entrar na área
+                         } else {
+                             checkPerimeter(group) // Continua verificando perímetro normal
+                         }
+                     });
                     
                     group.on('contextmenu', (e) => {
                         e.evt.preventDefault();
@@ -1359,6 +1568,9 @@
             }
 
             function checkPerimeter(group) {
+                 // Se a pista está fechada, não verifica o perímetro
+                 if (isRunwayClosedNow()) return;
+
                 if (!runwayPerimeter) return;
                 
                 const iconRect = group.getClientRect({ relativeTo: layer });
@@ -1387,10 +1599,15 @@
                     timerText.offsetX(timerText.width() / 2 - group.findOne('Image').width() / 2);
 
                     const timerId = setInterval(() => {
-                        timerText.text(formatTime(new Date() - group.getAttr('startTime')));
-                        if (group.getLayer()) {
-                            group.getLayer().batchDraw();
-                        }
+                        // Verifica se o grupo ainda existe antes de atualizar
+                         if (group.getParent()) {
+                             timerText.text(formatTime(new Date() - group.getAttr('startTime')));
+                             if (group.getLayer()) {
+                                 group.getLayer().batchDraw();
+                             }
+                         } else {
+                              clearInterval(timerId); // Limpa o intervalo se o grupo foi destruído
+                         }
                     }, 1000);
                     group.setAttr('timerId', timerId);
                     stateChanged = true;
@@ -1412,7 +1629,7 @@
                 }
 
                 if (stateChanged) {
-                    updateAlarmStatus();
+                    updateAlarmStatus(); // Chama updateAlarmStatus que agora também chama updateIconNumbers
                 }
             }
             
@@ -1427,21 +1644,30 @@
                             if (!iconsInsideByType[type]) {
                                 iconsInsideByType[type] = [];
                             }
-                            iconsInsideByType[type].push(group);
+                            // Adiciona apenas se o grupo ainda existe (tem parent)
+                            if (group.getParent()) {
+                                iconsInsideByType[type].push(group);
+                            }
                         }
                     }
                 });
 
+
                 for (const type in iconsInsideByType) {
                     const groups = iconsInsideByType[type];
                     if (groups.length > 1) {
-                        groups.sort((a, b) => a.getAttr('startTime') - b.getAttr('startTime'));
+                         // Ordena por startTime para manter a ordem de entrada
+                        groups.sort((a, b) => (a.getAttr('startTime') || 0) - (b.getAttr('startTime') || 0));
                         
                         groups.forEach((group, index) => {
+                             // Verifica se o grupo ainda está no layer antes de adicionar o badge
+                            if (!group.getParent()) return;
+
                             const number = index + 1;
+                            const imageWidth = group.findOne('Image')?.width() || 75; // Usa 75 como padrão
 
                             const badgeGroup = new Konva.Group({
-                                x: group.findOne('Image').width() - 12,
+                                x: imageWidth - 12, // Posiciona relativo à largura da imagem
                                 y: -12,
                                 name: 'number-badge-group',
                             });
@@ -1479,15 +1705,44 @@
 
 
             function updateAlarmStatus() {
+                 // Se estiver fechado, a lógica de ocupado/livre normal não se aplica
+                 if (isRunwayClosedNow()) {
+                     // Garante que o display mostre "Fechada" e a classe correta
+                     if (!alarmDisplay.classList.contains('closed')) {
+                         alarmDisplay.innerHTML = '<i class="fas fa-lock"></i> Pista Fechada (Programado)';
+                         alarmDisplay.classList.add('closed');
+                         alarmDisplay.classList.remove('active', 'success'); // Garante que outras classes saiam
+                         perimeterAlarmTween?.pause(); // Para a animação do perímetro
+                         perimeterAlarmTween?.seek(0);
+                         runwayPerimeter?.fill('transparent');
+                          // Opcional: Desabilitar visualmente a paleta de ícones
+                         document.querySelector('.icon-palette').style.opacity = '0.5';
+                         document.querySelector('.icon-palette').style.pointerEvents = 'none';
+                     }
+                     // Não executa o resto da função se estiver fechado
+                     return; 
+                 } else {
+                     // Se não está fechado, remove o status de fechado e reabilita a paleta
+                     if (alarmDisplay.classList.contains('closed')) {
+                         alarmDisplay.classList.remove('closed');
+                           document.querySelector('.icon-palette').style.opacity = '1';
+                           document.querySelector('.icon-palette').style.pointerEvents = 'auto';
+                     }
+                 }
+
+
+                // Lógica original de Pista Livre/Ocupada (só executa se não estiver fechada)
                 const isOccupied = layer.find('Group').some(group => group.attrs.isCurrentlyInside);
                 
                 if (isOccupied) {
                     alarmDisplay.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Pista Ocupada!';
                     alarmDisplay.classList.add('active');
+                     alarmDisplay.classList.remove('success'); // Garante que a classe 'success' saia
                     perimeterAlarmTween?.play();
                 } else {
                     alarmDisplay.innerHTML = '<i class="fas fa-check-circle"></i> Pista Livre';
                     alarmDisplay.classList.remove('active');
+                     alarmDisplay.classList.add('success'); // Adiciona classe 'success' para verde
                     perimeterAlarmTween?.pause();
                     perimeterAlarmTween?.seek(0);
                     runwayPerimeter?.fill('transparent');
@@ -1498,12 +1753,20 @@
                     isOccupied ? alarmLightTween?.play() : alarmLightTween?.pause();
                 }
                 
-                updateIconNumbers();
+                updateIconNumbers(); // Atualiza números dos ícones
                 layer.batchDraw();
             }
 
             document.querySelectorAll('.icon-palette .icon-item').forEach(item => {
                 item.addEventListener('click', () => {
+                    // Verifica fechamento antes de adicionar
+                     if (isRunwayClosedNow()) {
+                        console.log("Pista fechada. Não é possível adicionar ícones.");
+                         // Pode adicionar um feedback visual rápido aqui
+                         item.style.transform = 'scale(0.9)';
+                         setTimeout(() => item.style.transform = '', 150);
+                         return;
+                     }
                     addDraggableIcon(item.dataset.imageUrl, item.dataset.iconType);
                     addLogEntry(`${new Date().toLocaleString('pt-BR')}: ${item.dataset.iconType} adicionado ao pátio.`);
                     saveIconsState();
@@ -1522,46 +1785,75 @@
 
             function initMetarDisplay() {
                 metarDisplayKonvaContainer.innerHTML = '';
-                const stage = new Konva.Stage({
+                const konvaWidth = metarDisplayKonvaContainer.offsetWidth;
+                const konvaHeight = metarDisplayKonvaContainer.offsetHeight > 0 ? metarDisplayKonvaContainer.offsetHeight : 80; // Fallback height
+
+                const stageMetar = new Konva.Stage({
                     container: metarDisplayKonvaContainer,
-                    width: metarDisplayKonvaContainer.offsetWidth,
-                    height: metarDisplayKonvaContainer.offsetHeight
+                    width: konvaWidth,
+                    height: konvaHeight
                 });
-                const layer = new Konva.Layer();
-                stage.add(layer);
+                const layerMetar = new Konva.Layer();
+                stageMetar.add(layerMetar);
                 
                 metarTextKonva = new Konva.Text({
-                    width: stage.width(),
-                    height: stage.height(),
+                    x: 0,
+                    y: 0,
+                    width: konvaWidth,
+                    height: konvaHeight,
                     text: 'Aguardando METAR...',
-                    fontSize: 16,
-                    fontFamily: 'Inter',
+                    fontSize: 16, // Começa com um tamanho razoável
+                    fontFamily: 'Inter, sans-serif',
                     fill: settings.darkMode ? '#f8fafc' : '#0f172a',
                     align: 'center',
                     verticalAlign: 'middle',
+                    padding: 10 // Adiciona padding para evitar que o texto toque as bordas
                 });
-                layer.add(metarTextKonva);
-                layer.batchDraw();
+                layerMetar.add(metarTextKonva);
+                 adjustMetarFontSize(); // Ajusta o tamanho da fonte inicial
+                layerMetar.batchDraw();
             }
 
+            // Função separada para ajustar o tamanho da fonte do METAR
+            function adjustMetarFontSize() {
+                 if (!metarTextKonva) return;
+                
+                 const stage = metarTextKonva.getStage();
+                 if (!stage) return; // Se o stage ainda não existe
+
+                 const maxWidth = stage.width() - (metarTextKonva.padding() * 2);
+                 const maxHeight = stage.height() - (metarTextKonva.padding() * 2);
+
+                 let fontSize = 24; // Começa com um tamanho maior
+                 metarTextKonva.fontSize(fontSize);
+
+                 // Diminui a fonte até caber
+                 while ((metarTextKonva.width() > maxWidth || metarTextKonva.height() > maxHeight) && fontSize > 8) {
+                     fontSize--;
+                     metarTextKonva.fontSize(fontSize);
+                 }
+                metarTextKonva.width(maxWidth + metarTextKonva.padding() * 2); // Ajusta a largura final com padding
+                metarTextKonva.height(maxHeight + metarTextKonva.padding() * 2); // Ajusta a altura final com padding
+                 metarTextKonva.y(0); // Garante que está no topo
+            }
+
+
             function updateMetarDisplay(message) {
-                if (!metarTextKonva) return;
+                if (!metarTextKonva) {
+                     initMetarDisplay(); // Tenta inicializar se não existir
+                     if (!metarTextKonva) return; // Retorna se ainda assim falhar
+                 }
                 
                 metarTextKonva.text(message);
-                let fontSize = 24;
-                metarTextKonva.fontSize(fontSize);
-                
-                while (metarTextKonva.width() > metarTextKonva.getStage().width() || 
-                       metarTextKonva.height() > metarTextKonva.getStage().height()) {
-                    fontSize--;
-                    metarTextKonva.fontSize(fontSize);
-                    if (fontSize < 10) break;
-                }
-                metarTextKonva.getLayer().batchDraw();
+                adjustMetarFontSize(); // Ajusta o tamanho da fonte
+                metarTextKonva.getLayer()?.batchDraw(); // Usa optional chaining
             }
+
 
             function startPollingMetar() {
                 if (pollingIntervalIdMetar) clearInterval(pollingIntervalIdMetar);
+                 // Adiciona verificação inicial imediata
+                 fetchMetarSpeci(); 
                 pollingIntervalIdMetar = setInterval(fetchMetarSpeci, settings.pollInterval);
             }
             
@@ -1615,15 +1907,22 @@
                 metarDisplayKonvaContainer.classList.add('metar-alert');
 
                 if (shouldPlaySound && settings.soundAlarm && !isAlarmPlayingMetar) {
-                    metarAlarmSound.loop = shouldLoopSound;
-                    metarAlarmSound.play().catch(e => console.error("Falha ao tocar áudio.", e));
-                    isAlarmPlayingMetar = true;
-                    
-                    if (isQuietHours) {
-                        alarmState.hasAlarmedThisHour = true;
+                     // Verifica se o contexto de áudio já foi iniciado pela interação do usuário
+                    if (metarAlarmSound.paused) { // Tenta tocar apenas se não estiver tocando
+                         metarAlarmSound.loop = shouldLoopSound;
+                         metarAlarmSound.play().then(() => {
+                             isAlarmPlayingMetar = true;
+                             if (isQuietHours) {
+                                 alarmState.hasAlarmedThisHour = true;
+                             }
+                         }).catch(e => {
+                              console.error("Falha ao tocar áudio. Interação do usuário pode ser necessária.", e);
+                              // Não define isAlarmPlayingMetar como true se falhar
+                         });
                     }
                 }
             }
+
 
             function shouldTriggerAlarm() {
                 const now = new Date();
@@ -1642,60 +1941,119 @@
                     updateMetarDisplay('Insira um código ICAO.');
                     return;
                 }
-                updateMetarDisplay('Carregando...');
+                updateMetarDisplay('Carregando METAR...'); // Mensagem mais clara
+                 metarDisplayKonvaContainer.classList.add('loading'); // Adiciona classe de loading
+
                 const now = new Date();
-                const oneHourAgo = new Date(now.getTime() - 3600000);
-                const formatDT = (d) => d.toISOString().slice(0, 13).replace(/[-T]/g, '');
-                const url = `https://api-redemet.decea.mil.br/mensagens/metar/${settings.icaoCode}?api_key=${API_KEY}&data_ini=${formatDT(oneHourAgo)}&data_fim=${formatDT(now)}`;
+                const oneHourAgo = new Date(now.getTime() - 3600000); // 1 hora atrás
+                const formatDT = (d) => d.toISOString().slice(0, 13).replace(/[-T]/g, ''); // Formato YYYYMMDDHH
+                 const startTimeStr = formatDT(oneHourAgo);
+                 const endTimeStr = formatDT(now);
+                
+                // Constrói a URL dinamicamente
+                const url = `https://api-redemet.decea.mil.br/mensagens/metar/${settings.icaoCode}?api_key=${API_KEY}&data_ini=${startTimeStr}&data_fim=${endTimeStr}`;
+
+                console.log(`Buscando METAR: ${url}`); // Log da URL para debug
 
                 let triggerAlarm = false;
 
                 try {
-                    const response = await fetch(url, { cache: 'no-store' });
-                    if (!response.ok) throw new Error(`Erro ${response.status}`);
-                    const data = await response.json();
-                    const messages = data?.data?.data;
+                    const response = await fetch(url, { cache: 'no-store' }); // Evita cache
                     
+                    if (!response.ok) {
+                         // Tenta obter detalhes do erro se disponíveis
+                         let errorBody = 'Status desconhecido';
+                         try { errorBody = await response.text(); } catch (e) {}
+                         console.error(`Erro na API METAR: ${response.status}`, errorBody);
+                        throw new Error(`Erro ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                     console.log("Dados recebidos da API METAR:", data); // Log dos dados recebidos
+
+                    if (!data.status) {
+                         console.error("API METAR retornou status false:", data.message || 'Sem mensagem adicional');
+                         throw new Error(data.message || 'Erro desconhecido da API');
+                    }
+
+                    const messages = data?.data?.data;
                     const nowUTCHour = now.getUTCHours();
                     const nowUTCMinute = now.getUTCMinutes();
 
                     if (messages && messages.length > 0) {
+                        // Ordena para garantir que a mensagem mais recente seja a primeira
                         messages.sort((a, b) => new Date(b.recebimento) - new Date(a.recebimento));
                         const latestMessage = messages[0].mens;
                         updateMetarDisplay(latestMessage);
 
-                        const msgTimeMatch = latestMessage.match(/\s\d{2}(\d{2})\d{2}Z/);
-                        const msgHour = msgTimeMatch ? parseInt(msgTimeMatch[1], 10) : -1;
+                        // Lógica de alarme baseada no horário da mensagem
+                        const msgTimeMatch = latestMessage.match(/\s\d{2}(\d{2})(\d{2})Z/); // Captura hora e minuto
+                         const msgHour = msgTimeMatch ? parseInt(msgTimeMatch[1], 10) : -1;
+                         const msgMinute = msgTimeMatch ? parseInt(msgTimeMatch[2], 10) : -1;
                         
-                        if (msgHour !== nowUTCHour && nowUTCMinute > 1) {
-                            if (nowUTCHour === 3 && nowUTCMinute <= 15 && msgHour === 2) {
-                                triggerAlarm = false;
-                            } else {
+                         console.log(`Hora atual UTC: ${nowUTCHour}:${nowUTCMinute}, Hora METAR: ${msgHour}:${msgMinute}`);
+
+                         // Condição de Alarme Refinada:
+                         // 1. Hora do METAR diferente da hora atual E já se passaram mais de 5 minutos da hora atual
+                         // OU 2. Hora do METAR é a mesma, mas o METAR tem mais de 35 minutos de idade
+                         const minutesSinceMetar = (nowUTCHour * 60 + nowUTCMinute) - (msgHour * 60 + msgMinute);
+                         // Corrige para casos onde o METAR é da hora anterior perto da virada da hora
+                         const correctedMinutesSinceMetar = minutesSinceMetar < -30 ? minutesSinceMetar + 60 : minutesSinceMetar; 
+
+                         if (msgHour !== nowUTCHour && nowUTCMinute > 5) {
+                             // Exceção: Esperando SPECI das 03:15 UTC (não alarmar se último METAR for da hora 02)
+                            if (!(nowUTCHour === 3 && nowUTCMinute <= 15 && msgHour === 2)) {
+                                console.log("Alarme Trigger: METAR da hora anterior e passou de H+05.");
                                 triggerAlarm = true;
+                            } else {
+                                console.log("Não alarmando: Esperando SPECI das 03:15.");
                             }
-                        }
+                         } else if (msgHour === nowUTCHour && correctedMinutesSinceMetar > 35) {
+                              console.log(`Alarme Trigger: METAR da hora atual, mas com mais de 35 minutos (${correctedMinutesSinceMetar} min).`);
+                              triggerAlarm = true;
+                         }
+
 
                     } else {
-                        updateMetarDisplay('Nenhum METAR encontrado.');
-                        if (nowUTCMinute > 1) {
-                            if (!(nowUTCHour === 3 && nowUTCMinute <= 15)) {
-                                triggerAlarm = true;
-                            }
+                         console.log("Nenhum METAR encontrado no período.");
+                        updateMetarDisplay('Nenhum METAR recente encontrado.');
+                         // Alarme se não houver METAR e já passou de H+05
+                        if (nowUTCMinute > 5) {
+                              // Exceção: Não alarmar por ausência se esperando SPECI das 03:15
+                              if (!(nowUTCHour === 3 && nowUTCMinute <= 15)) {
+                                   console.log("Alarme Trigger: Nenhum METAR encontrado e passou de H+05.");
+                                   triggerAlarm = true;
+                              } else {
+                                   console.log("Não alarmando ausência: Esperando SPECI das 03:15.");
+                              }
                         }
                     }
                 } catch (error) {
+                    console.error("Erro detalhado ao buscar METAR:", error);
                     updateMetarDisplay(`Falha na busca: ${error.message}`);
-                    if (new Date().getUTCMinutes() > 1) {
+                    // Alarme em caso de falha de comunicação, se passou de H+05
+                    if (new Date().getUTCMinutes() > 5) {
+                         console.log("Alarme Trigger: Falha na API e passou de H+05.");
                         triggerAlarm = true;
                     }
-                }
+                } finally {
+                     metarDisplayKonvaContainer.classList.remove('loading'); // Remove classe de loading
+                 }
 
-                if (triggerAlarm) {
+                 // Decide se mostra o alarme visual/sonoro
+                if (triggerAlarm && shouldTriggerAlarm()) { // Verifica se já alarmou nesta hora UTC
+                     console.log("Mostrando alarme METAR.");
                     showMetarAlarm();
                 } else {
+                     if (triggerAlarm && !shouldTriggerAlarm()) {
+                          console.log("Alarme METAR não mostrado: Já alarmou nesta hora UTC.");
+                     } else if (!triggerAlarm) {
+                          console.log("Alarme METAR não necessário.");
+                     }
                     hideMetarAlarm();
                 }
             }
+
 
             silenceAlarmButton.addEventListener('click', () => hideMetarAlarm(true));
 
@@ -1705,27 +2063,58 @@
             const cancelSettingsBtn = document.getElementById('cancel-settings-btn');
 
             settingsButton.addEventListener('click', () => {
+                 // Recarrega os valores atuais no modal antes de abrir
+                 updateUIFromSettings(); 
                 settingsModal.classList.add('visible');
             });
 
             cancelSettingsBtn.addEventListener('click', () => {
                 settingsModal.classList.remove('visible');
-                updateUIFromSettings();
+                // Não precisa fazer nada aqui, pois os valores não foram salvos
             });
 
             saveSettingsBtn.addEventListener('click', () => {
-                settings.darkMode = document.getElementById('darkModeToggle').checked;
-                settings.icaoCode = document.getElementById("icaoCodeInput").value.toUpperCase();
-                settings.pollInterval = parseInt(document.getElementById("pollIntervalInput").value);
-                settings.soundAlarm = document.getElementById("soundAlarmToggle").checked;
-                settings.perimeterX = parseInt(document.getElementById('perimeterXInput').value);
-                settings.perimeterY = parseInt(document.getElementById('perimeterYInput').value);
-                settings.perimeterWidth = parseInt(document.getElementById('perimeterWidthInput').value);
-                settings.perimeterHeight = parseInt(document.getElementById('perimeterHeightInput').value);
-                
-                saveSettings();
-                location.reload();
+                 try {
+                     // Lê e valida os novos valores do formulário
+                     settings.darkMode = document.getElementById('darkModeToggle').checked;
+                     settings.icaoCode = document.getElementById("icaoCodeInput").value.toUpperCase().trim();
+                     settings.pollInterval = parseInt(document.getElementById("pollIntervalInput").value);
+                     settings.soundAlarm = document.getElementById("soundAlarmToggle").checked;
+                     settings.perimeterX = parseInt(document.getElementById('perimeterXInput').value);
+                     settings.perimeterY = parseInt(document.getElementById('perimeterYInput').value);
+                     settings.perimeterWidth = parseInt(document.getElementById('perimeterWidthInput').value);
+                     settings.perimeterHeight = parseInt(document.getElementById('perimeterHeightInput').value);
+
+                      // Lê configurações de fechamento
+                     settings.closureEnabled = document.getElementById('closureEnabledToggle').checked;
+                     settings.closureDays = Array.from(document.querySelectorAll('#closureDaysCheckboxes input:checked')).map(cb => parseInt(cb.value));
+                     settings.closureStartTime = document.getElementById('closureStartTimeInput').value;
+                     settings.closureEndTime = document.getElementById('closureEndTimeInput').value;
+                     settings.closureReason = document.getElementById('closureReasonInput').value.trim();
+                     settings.closureNotam = document.getElementById('closureNotamInput').value.trim();
+
+                     // Validações básicas (exemplo: ICAO não vazio)
+                     if (!settings.icaoCode) {
+                         alert("O código ICAO não pode estar vazio."); // Usar um modal customizado no futuro
+                         return; 
+                     }
+                     if (settings.closureEnabled && (!settings.closureStartTime || !settings.closureEndTime || settings.closureDays.length === 0)) {
+                          alert("Para ativar o fechamento, preencha os dias e horários.");
+                          return;
+                     }
+
+
+                     // Salva as novas configurações no armazenamento local
+                     saveSettings();
+
+                     // Recarrega a página para aplicar todas as alterações
+                     location.reload(); 
+                 } catch (error) {
+                      console.error("Erro ao salvar configurações:", error);
+                      alert("Ocorreu um erro ao salvar as configurações."); // Usar modal
+                 }
             });
+
 
             const generateReportButton = document.getElementById('generateReportButton');
             const reportModal = document.getElementById('report-modal');
@@ -1742,6 +2131,7 @@
 
             function generateReport() {
                 console.log('Gerando relatório...');
+                // Implementação futura do relatório
             }
 
             window.addEventListener('click', (e) => {
@@ -1759,40 +2149,40 @@
 
             window.addEventListener('resize', () => {
                 const container = document.getElementById('konva-container');
+                 const metarContainer = document.getElementById('metar-display-konva-container');
+                
+                // Redimensiona o stage principal
                 stage.width(container.offsetWidth);
                 stage.height(container.offsetHeight);
-                initRunwayCanvas();
+                 
+                 // Redimensiona o stage do METAR
+                 const metarStage = metarTextKonva?.getStage();
+                 if (metarStage) {
+                    metarStage.width(metarContainer.offsetWidth);
+                     const newHeight = metarContainer.offsetHeight > 0 ? metarContainer.offsetHeight : 80;
+                    metarStage.height(newHeight);
+                    metarTextKonva.width(metarStage.width()); // Atualiza largura do texto
+                    metarTextKonva.height(newHeight); // Atualiza altura do texto
+                    adjustMetarFontSize(); // Reajusta fonte
+                    metarTextKonva.getLayer()?.batchDraw(); // Redesenha
+                 }
+
+                initRunwayCanvas(); // Redesenha a pista e ícones
             });
 
-            // Removido: Funcionalidade do contador TWY C
-            // const twycLogBtn = document.getElementById('twyc-log-btn');
-            // const twycCounterSpan = document.getElementById('twyc-counter');
-            // let twycCounter = 0;
-
-            // function loadTwycCounter() {
-            //     const savedCount = localStorage.getItem('twycCounter');
-            //     twycCounter = savedCount ? parseInt(savedCount, 10) : 0;
-            //     twycCounterSpan.textContent = twycCounter;
-            // }
-
-            // twycLogBtn.addEventListener('click', () => {
-            //     twycCounter++;
-            //     twycCounterSpan.textContent = twycCounter;
-            //     localStorage.setItem('twycCounter', twycCounter);
-                
-            //     const now = new Date().toLocaleString('pt-BR');
-            //     addLogEntry(`${now}: TWYC - Entrada/Saída registrada.`);
-            // });
-
             // Initialize everything
-            loadSettings();
-            // Removido: loadTwycCounter(); 
+            loadSettings(); 
             initRunwayCanvas();
             createAlarmLight();
             observationsTextarea.value = localStorage.getItem('observationsText') || '';
             initMetarDisplay();
-            fetchMetarSpeci();
+            // fetchMetarSpeci(); // Chamado dentro de startPollingMetar agora
             startPollingMetar();
+
+             // Inicia a verificação periódica do fechamento da pista (a cada minuto)
+             closureCheckInterval = setInterval(checkRunwayClosure, 60000); 
+             // Chama uma vez imediatamente também
+             checkRunwayClosure(); 
         });
     </script>
 </body>
