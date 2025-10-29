@@ -1714,7 +1714,6 @@
             });
 
             saveSettingsBtn.addEventListener('click', () => {
-                // Primeiro, lê os novos valores do formulário
                 settings.darkMode = document.getElementById('darkModeToggle').checked;
                 settings.icaoCode = document.getElementById("icaoCodeInput").value.toUpperCase();
                 settings.pollInterval = parseInt(document.getElementById("pollIntervalInput").value);
@@ -1724,10 +1723,7 @@
                 settings.perimeterWidth = parseInt(document.getElementById('perimeterWidthInput').value);
                 settings.perimeterHeight = parseInt(document.getElementById('perimeterHeightInput').value);
                 
-                // Salva as novas configurações no armazenamento local
                 saveSettings();
-
-                // Recarrega a página para aplicar todas as alterações do zero
                 location.reload();
             });
 
@@ -1768,8 +1764,29 @@
                 initRunwayCanvas();
             });
 
+            // Removido: Funcionalidade do contador TWY C
+            // const twycLogBtn = document.getElementById('twyc-log-btn');
+            // const twycCounterSpan = document.getElementById('twyc-counter');
+            // let twycCounter = 0;
+
+            // function loadTwycCounter() {
+            //     const savedCount = localStorage.getItem('twycCounter');
+            //     twycCounter = savedCount ? parseInt(savedCount, 10) : 0;
+            //     twycCounterSpan.textContent = twycCounter;
+            // }
+
+            // twycLogBtn.addEventListener('click', () => {
+            //     twycCounter++;
+            //     twycCounterSpan.textContent = twycCounter;
+            //     localStorage.setItem('twycCounter', twycCounter);
+                
+            //     const now = new Date().toLocaleString('pt-BR');
+            //     addLogEntry(`${now}: TWYC - Entrada/Saída registrada.`);
+            // });
+
             // Initialize everything
             loadSettings();
+            // Removido: loadTwycCounter(); 
             initRunwayCanvas();
             createAlarmLight();
             observationsTextarea.value = localStorage.getItem('observationsText') || '';
