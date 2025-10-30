@@ -1828,7 +1828,7 @@
                  metarTextKonva.fontSize(fontSize);
 
                  // Diminui a fonte até caber
-                 while ((metarTextKonva.width() > maxWidth || metarTextKonva.height() > maxHeight) && fontSize > 16) {
+                 while ((metarTextKonva.width() > maxWidth || metarTextKonva.height() > maxHeight) && fontSize > 12) { // Alterado de 8 para 12
                      fontSize--;
                      metarTextKonva.fontSize(fontSize);
                  }
@@ -1956,6 +1956,8 @@
                 console.log(`Buscando METAR: ${url}`); // Log da URL para debug
 
                 let triggerAlarm = false;
+                const nowUTCHour = now.getUTCHours();
+                const nowUTCMinute = now.getUTCMinutes();
 
                 try {
                     const response = await fetch(url, { cache: 'no-store' }); // Evita cache
@@ -1977,46 +1979,46 @@
                     }
 
                     const messages = data?.data?.data;
-                    const nowUTCHour = now.getUTCHours();
-                    const nowUTCMinute = now.getUTCMinutes();
-
+                    
                     if (messages && messages.length > 0) {
                         // Ordena para garantir que a mensagem mais recente seja a primeira
                         messages.sort((a, b) => new Date(b.recebimento) - new Date(a.recebimento));
-                        const latestMessage = messages[0].mens;
-                        updateMetarDisplay(latestMessage);
-
-                        // Lógica de alarme baseada no horário da mensagem
-                        const msgTimeMatch = latestMessage.match(/\s\d{2}(\d{2})(\d{2})Z/); // Captura hora e minuto
-                         const msgHour = msgTimeMatch ? parseInt(msgTimeMatch[1], 10) : -1;
-                         const msgMinute = msgTimeMatch ? parseInt(msgTimeMatch[2], 10) : -1;
                         
-                         console.log(`Hora atual UTC: ${nowUTCHour}:${nowUTCMinute}, Hora METAR: ${msgHour}:${msgMinute}`);
+                        const latestMessageObj = messages[0];
+                        const latestMessage = latestMessageObj.mens;
+                        const messageTime = new Date(latestMessageObj.recebimento); // Data de recebimento
+                        const messageAgeMinutes = (now.getTime() - messageTime.getTime()) / 60000; // Idade em minutos
 
-                         // Condição de Alarme Refinada:
-                         // 1. Hora do METAR diferente da hora atual E já se passaram mais de 5 minutos da hora atual
-                         // OU 2. Hora do METAR é a mesma, mas o METAR tem mais de 35 minutos de idade
-                         const minutesSinceMetar = (nowUTCHour * 60 + nowUTCMinute) - (msgHour * 60 + msgMinute);
-                         // Corrige para casos onde o METAR é da hora anterior perto da virada da hora
-                         const correctedMinutesSinceMetar = minutesSinceMetar < -30 ? minutesSinceMetar + 60 : minutesSinceMetar; 
+                        updateMetarDisplay(latestMessage);
+                        
+                        console.log(`Hora atual UTC: ${now.toISOString()}, Hora METAR: ${messageTime.toISOString()}, Idade: ${messageAgeMinutes.toFixed(1)} min`);
 
-                         if (msgHour !== nowUTCHour && nowUTCMinute > 5) {
-                             // Exceção: Esperando SPECI das 03:15 UTC (não alarmar se último METAR for da hora 02)
-                            if (!(nowUTCHour === 3 && nowUTCMinute <= 15 && msgHour === 2)) {
-                                console.log("Alarme Trigger: METAR da hora anterior e passou de H+05.");
-                                triggerAlarm = true;
+                        // Lógica de Alarme Simplificada: Alarma se o METAR mais recente tiver mais de 35 minutos.
+                        if (messageAgeMinutes > 35) {
+                            // Exceção: Esperando SPECI das 03:15 UTC
+                            // Não alarmar se:
+                            // 1. Hora atual é 03 UTC
+                            // 2. Minuto atual é <= 15
+                            // 3. A hora do METAR (atrasado) é 02 UTC
+                            const msgHour = messageTime.getUTCHours();
+                            if (nowUTCHour === 3 && nowUTCMinute <= 15 && msgHour === 2) {
+                                console.log("Não alarmando: METAR da hora 02, aguardando SPECI das 03:15.");
+                                triggerAlarm = false;
                             } else {
-                                console.log("Não alarmando: Esperando SPECI das 03:15.");
+                                console.log(`Alarme Trigger: Idade do METAR (${messageAgeMinutes.toFixed(1)} min) é > 35 min.`);
+                                triggerAlarm = true;
                             }
-                         } else if (msgHour === nowUTCHour && correctedMinutesSinceMetar > 35) {
-                              console.log(`Alarme Trigger: METAR da hora atual, mas com mais de 35 minutos (${correctedMinutesSinceMetar} min).`);
-                              triggerAlarm = true;
-                         }
-
+                        } else {
+                            // METAR está "fresco" (menos de 35 min)
+                            console.log("METAR está atualizado. Não alarmar.");
+                            triggerAlarm = false;
+                        }
 
                     } else {
+                         // Nenhuma mensagem encontrada
                          console.log("Nenhum METAR encontrado no período.");
                         updateMetarDisplay('Nenhum METAR recente encontrado.');
+                         
                          // Alarme se não houver METAR e já passou de H+05
                         if (nowUTCMinute > 5) {
                               // Exceção: Não alarmar por ausência se esperando SPECI das 03:15
@@ -2031,10 +2033,16 @@
                 } catch (error) {
                     console.error("Erro detalhado ao buscar METAR:", error);
                     updateMetarDisplay(`Falha na busca: ${error.message}`);
+                    
                     // Alarme em caso de falha de comunicação, se passou de H+05
-                    if (new Date().getUTCMinutes() > 5) {
-                         console.log("Alarme Trigger: Falha na API e passou de H+05.");
-                        triggerAlarm = true;
+                    if (nowUTCMinute > 5) {
+                         // Exceção: Não alarmar por falha se esperando SPECI das 03:15
+                         if (!(nowUTCHour === 3 && nowUTCMinute <= 15)) {
+                             console.log("Alarme Trigger: Falha na API e passou de H+05.");
+                            triggerAlarm = true;
+                         } else {
+                             console.log("Não alarmando falha: Esperando SPECI das 03:15.");
+                         }
                     }
                 } finally {
                      metarDisplayKonvaContainer.classList.remove('loading'); // Remove classe de loading
